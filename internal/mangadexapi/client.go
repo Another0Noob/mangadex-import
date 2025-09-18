@@ -14,31 +14,30 @@ import (
 )
 
 const (
-	baseURL       = "https://api.mangadex.org"
-	userAgent     = "MangaDex-Import/0.1 (https://github.com/Another0Noob/mangadex-import)"
+	baseURL   = "https://api.mangadex.org"
+	userAgent = "MangaDex-Import/0.1 (https://github.com/Another0Noob/mangadex-import)"
 )
 const (
-	// Rate limit: 1 request per second
-	rateLimitRequests = 1
+	rateLimitRequests = 5
 	rateLimitDuration = time.Second
 )
 
 // Client is the MangaDex API client.
 type Client struct {
-	httpClient *http.Client
-	baseURL    string
-	userAgent  string
+	httpClient  *http.Client
+	baseURL     string
+	userAgent   string
 	rateLimiter *rate.Limiter
 
-	token       *Token
+	token *Token
 }
 
 // NewClient creates a new MangaDex API client.
 func NewClient() *Client {
 	return &Client{
-		httpClient: &http.Client{},
-		baseURL:    baseURL,
-		userAgent:  userAgent,
+		httpClient:  &http.Client{},
+		baseURL:     baseURL,
+		userAgent:   userAgent,
 		rateLimiter: rate.NewLimiter(rate.Every(rateLimitDuration/time.Duration(rateLimitRequests)), rateLimitRequests),
 	}
 }
@@ -159,4 +158,4 @@ func addIntQueryParam(values url.Values, key string, value int) {
 // addBoolQueryParam adds a boolean query parameter.
 func addBoolQueryParam(values url.Values, key string, value bool) {
 	values.Set(key, fmt.Sprintf("%t", value))
-}	
+}
