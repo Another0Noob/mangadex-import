@@ -2,6 +2,7 @@ package mangadexapi
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -50,7 +51,7 @@ func (c *Client) SetToken(token *Token) {
 // doRequest performs an HTTP request to the MangaDex API.
 func (c *Client) doRequest(method, endpoint string, params url.Values, body interface{}) (*http.Response, error) {
 	// Rate limiting
-	if err := c.rateLimiter.Wait(nil); err != nil {
+	if err := c.rateLimiter.Wait(context.TODO()); err != nil {
 		return nil, fmt.Errorf("rate limit error: %w", err)
 	}
 
