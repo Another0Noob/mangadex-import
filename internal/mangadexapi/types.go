@@ -1,6 +1,12 @@
 package mangadexapi
 
-import "github.com/google/uuid"
+import (
+	"encoding/json"
+	"net/http"
+
+	"github.com/google/uuid"
+	"golang.org/x/time/rate"
+)
 
 type AuthForm struct {
 	GrantType    string
@@ -14,6 +20,126 @@ type AuthForm struct {
 type Token struct {
 	AccessToken  string `json:"access_token"`
 	RefreshToken string `json:"refresh_token"`
+}
+
+// Client is the MangaDex API client.
+type Client struct {
+	httpClient  *http.Client
+	baseURL     string
+	userAgent   string
+	rateLimiter *rate.Limiter
+
+	token *Token
+}
+
+// Generic envelope (works for object or collection responses).
+type Envelope struct {
+	Result   string          `json:"result"`   // "ok" or "error"
+	Response string          `json:"response"` // "entity", "collection", etc.
+	Data     json.RawMessage `json:"data"`
+	Errors   []APIError      `json:"errors,omitempty"`
+	Limit    *int            `json:"limit,omitempty"`
+	Offset   *int            `json:"offset,omitempty"`
+	Total    *int            `json:"total,omitempty"`
+	// Some endpoints include these for pagination; keep pointers so absence != 0
+}
+
+// APIError represents an error object in the API response.
+type APIError struct {
+	ID      string `json:"id"`
+	Status  int    `json:"status"`
+	Title   string `json:"title"`
+	Detail  string `json:"detail"`
+	Context string `json:"context,omitempty"`
+}
+
+// Advanced query params for manga search
+type QueryParams struct {
+	Limit                       int                       `url:"limit,omitempty"`
+	Offset                      int                       `url:"offset,omitempty"`
+	ID                          uuid.UUID                 `url:"id,omitempty"`
+	Title                       string                    `url:"title,omitempty"`
+	AuthorOrArtist              uuid.UUID                 `url:"authorOrArtist,omitempty"`
+	Authors                     []uuid.UUID               `url:"authors[],omitempty"`
+	Artists                     []uuid.UUID               `url:"artists[],omitempty"`
+	Year                        string                    `url:"year,omitempty"`
+	IncludedTags                []uuid.UUID               `url:"includedTags[],omitempty"`
+	IncludedTagsMode            TagsMode                  `url:"includedTagsMode,omitempty"`
+	ExcludedTags                []uuid.UUID               `url:"excludedTags[],omitempty"`
+	ExcludedTagsMode            TagsMode                  `url:"excludedTagsMode,omitempty"`
+	Status                      []Status                  `url:"status[],omitempty"`
+	OriginalLanguage            []string                  `url:"originalLanguage[],omitempty"`
+	ExcludedOriginalLanguage    []string                  `url:"excludedOriginalLanguage[],omitempty"`
+	AvailableTranslatedLanguage []string                  `url:"availableTranslatedLanguage[],omitempty"`
+	PublicationDemographic      []PublicationDemographic  `url:"publicationDemographic[],omitempty"`
+	IDs                         []uuid.UUID               `url:"ids[],omitempty"`
+	ContentRating               []ContentRating           `url:"contentRating[],omitempty"`
+	CreatedAtSince              string                    `url:"createdAtSince,omitempty"`
+	UpdatedAtSince              string                    `url:"updatedAtSince,omitempty"`
+	Includes                    []ReferenceExpansionManga `url:"includes[],omitempty"`
+	HasAvailableChapters        HasAvailableChapters      `url:"hasAvailableChapters,omitempty"`
+	HasUnavailableChapters      HasUnavailableChapters    `url:"hasUnavailableChapters,omitempty"`
+	Group                       uuid.UUID                 `url:"group,omitempty"`
+	Order                       OrderParams               `url:"order,omitempty"`
+}
+
+// OrderParams represents ordering options for manga queries.
+type OrderParams map[string]string // e.g. {"title": "asc", "latestUploadedChapter": "desc"}
+
+// Manga represents a manga object from the MangaDex API.
+type Manga struct {
+	ID         string          `json:"id"`
+	Type       string          `json:"type"`
+	Attributes MangaAttributes `json:"attributes"`
+	// Relationships []Relationship  `json:"relationships"`
+}
+
+// MangaAttributes represents the attributes of a manga.
+type MangaAttributes struct {
+	Title     map[string]string   `json:"title"`
+	AltTitles []map[string]string `json:"altTitles"`
+	//	Description                    map[string]string      `json:"description"`
+	//	IsLocked                       bool                   `json:"isLocked"`
+	Links map[string]string `json:"links"`
+	//	OriginalLanguage               string                 `json:"originalLanguage"`
+	//	LastVolume                     string                 `json:"lastVolume"`
+	//	LastChapter                    string                 `json:"lastChapter"`
+	//	PublicationDemographic         PublicationDemographic `json:"publicationDemographic"`
+	//	Status                         Status                 `json:"status"`
+	//	Year                           int                    `json:"year"`
+	//	ContentRating                  ContentRating          `json:"contentRating"`
+	//	ChapterNumbersResetOnNewVolume bool                   `json:"chapterNumbersResetOnNewVolume"`
+	//	AvailableTranslatedLanguages   []string               `json:"availableTranslatedLanguages"`
+	//	LatestUploadedChapter          string                 `json:"latestUploadedChapter"`
+	Tags []Tag `json:"tags"`
+	// State                          string                 `json:"state"`
+	// Version                        int                    `json:"version"`
+	// CreatedAt                      string                 `json:"createdAt"`
+	// UpdatedAt                      string                 `json:"updatedAt"`
+}
+
+// Tag represents a tag object from the MangaDex API.
+type Tag struct {
+	ID            string         `json:"id"`
+	Type          string         `json:"type"`
+	Attributes    TagAttributes  `json:"attributes"`
+	Relationships []Relationship `json:"relationships"`
+}
+
+// TagAttributes represents the attributes of a tag object from the MangaDex API.
+type TagAttributes struct {
+	Name        map[string]string `json:"name"`
+	Description map[string]string `json:"description"`
+	Group       string            `json:"group"`
+	Version     int               `json:"version"`
+}
+
+// Relationship represents a relationship object from the MangaDex API.
+type Relationship struct {
+	ID         string                 `json:"id"`
+	Type       string                 `json:"type"`
+	Related    string                 `json:"related"`
+	Attributes map[string]interface{} `json:"attributes"`
 }
 
 // Status for manga search
@@ -96,129 +222,3 @@ const (
 	ReadingStatusReReading  ReadingStatus = "re_reading"
 	ReadingStatusCompleted  ReadingStatus = "completed"
 )
-
-// OrderParams represents ordering options for manga queries.
-type OrderParams map[string]string // e.g. {"title": "asc", "latestUploadedChapter": "desc"}
-
-// Advanced query params for manga search
-type QueryParams struct {
-	Limit                       int                       `url:"limit,omitempty"`
-	Offset                      int                       `url:"offset,omitempty"`
-	ID                          uuid.UUID                 `url:"id,omitempty"`
-	Title                       string                    `url:"title,omitempty"`
-	AuthorOrArtist              uuid.UUID                 `url:"authorOrArtist,omitempty"`
-	Authors                     []uuid.UUID               `url:"authors[],omitempty"`
-	Artists                     []uuid.UUID               `url:"artists[],omitempty"`
-	Year                        string                    `url:"year,omitempty"`
-	IncludedTags                []uuid.UUID               `url:"includedTags[],omitempty"`
-	IncludedTagsMode            TagsMode                  `url:"includedTagsMode,omitempty"`
-	ExcludedTags                []uuid.UUID               `url:"excludedTags[],omitempty"`
-	ExcludedTagsMode            TagsMode                  `url:"excludedTagsMode,omitempty"`
-	Status                      []Status                  `url:"status[],omitempty"`
-	OriginalLanguage            []string                  `url:"originalLanguage[],omitempty"`
-	ExcludedOriginalLanguage    []string                  `url:"excludedOriginalLanguage[],omitempty"`
-	AvailableTranslatedLanguage []string                  `url:"availableTranslatedLanguage[],omitempty"`
-	PublicationDemographic      []PublicationDemographic  `url:"publicationDemographic[],omitempty"`
-	IDs                         []uuid.UUID               `url:"ids[],omitempty"`
-	ContentRating               []ContentRating           `url:"contentRating[],omitempty"`
-	CreatedAtSince              string                    `url:"createdAtSince,omitempty"`
-	UpdatedAtSince              string                    `url:"updatedAtSince,omitempty"`
-	Includes                    []ReferenceExpansionManga `url:"includes[],omitempty"`
-	HasAvailableChapters        HasAvailableChapters      `url:"hasAvailableChapters,omitempty"`
-	HasUnavailableChapters      HasUnavailableChapters    `url:"hasUnavailableChapters,omitempty"`
-	Group                       uuid.UUID                 `url:"group,omitempty"`
-	Order                       OrderParams               `url:"order,omitempty"`
-}
-
-// Response represents a generic API response.
-type EntityResponse struct {
-	Result   string     `json:"result"`
-	Response string     `json:"response"`
-	Data     Manga      `json:"data"`
-	Errors   []APIError `json:"errors,omitempty"`
-}
-
-type CollectionResponse struct {
-	Result   string     `json:"result"`
-	Response string     `json:"response"`
-	Data     []Manga    `json:"data"`
-	Limit    int        `json:"limit"`
-	Offset   int        `json:"offset"`
-	Total    int        `json:"total"`
-	Errors   []APIError `json:"errors,omitempty"`
-}
-
-type ResultOnlyResponse struct {
-	Result string `json:"result"`
-	Status string `json:"status,omitempty"`
-}
-
-type ErrorResponse struct {
-	Result string     `json:"result"`
-	Errors []APIError `json:"errors"`
-}
-
-// APIError represents an error object in the API response.
-type APIError struct {
-	ID      string `json:"id"`
-	Status  int    `json:"status"`
-	Title   string `json:"title"`
-	Detail  string `json:"detail"`
-	Context string `json:"context,omitempty"`
-}
-
-// Manga represents a manga object from the MangaDex API.
-type Manga struct {
-	ID            string          `json:"id"`
-	Type          string          `json:"type"`
-	Attributes    MangaAttributes `json:"attributes"`
-	Relationships []Relationship  `json:"relationships"`
-}
-
-// MangaAttributes represents the attributes of a manga.
-type MangaAttributes struct {
-	Title                          map[string]string      `json:"title"`
-	AltTitles                      []map[string]string    `json:"altTitles"`
-	Description                    map[string]string      `json:"description"`
-	IsLocked                       bool                   `json:"isLocked"`
-	Links                          map[string]string      `json:"links"`
-	OriginalLanguage               string                 `json:"originalLanguage"`
-	LastVolume                     string                 `json:"lastVolume"`
-	LastChapter                    string                 `json:"lastChapter"`
-	PublicationDemographic         PublicationDemographic `json:"publicationDemographic"`
-	Status                         Status                 `json:"status"`
-	Year                           int                    `json:"year"`
-	ContentRating                  ContentRating          `json:"contentRating"`
-	ChapterNumbersResetOnNewVolume bool                   `json:"chapterNumbersResetOnNewVolume"`
-	AvailableTranslatedLanguages   []string               `json:"availableTranslatedLanguages"`
-	LatestUploadedChapter          string                 `json:"latestUploadedChapter"`
-	Tags                           []Tag                  `json:"tags"`
-	State                          string                 `json:"state"`
-	Version                        int                    `json:"version"`
-	CreatedAt                      string                 `json:"createdAt"`
-	UpdatedAt                      string                 `json:"updatedAt"`
-}
-
-// Tag represents a tag object from the MangaDex API.
-type Tag struct {
-	ID            string         `json:"id"`
-	Type          string         `json:"type"`
-	Attributes    TagAttributes  `json:"attributes"`
-	Relationships []Relationship `json:"relationships"`
-}
-
-// TagAttributes represents the attributes of a tag object from the MangaDex API.
-type TagAttributes struct {
-	Name        map[string]string `json:"name"`
-	Description map[string]string `json:"description"`
-	Group       string            `json:"group"`
-	Version     int               `json:"version"`
-}
-
-// Relationship represents a relationship object from the MangaDex API.
-type Relationship struct {
-	ID         string                 `json:"id"`
-	Type       string                 `json:"type"`
-	Related    string                 `json:"related"`
-	Attributes map[string]interface{} `json:"attributes"`
-}
