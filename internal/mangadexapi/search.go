@@ -25,3 +25,12 @@ func (c *Client) GetManga(ctx context.Context, id uuid.UUID, qp QueryParams) (*M
 	}
 	return &m, nil
 }
+
+func (c *Client) GetFollowedMangaList(ctx context.Context, qp QueryParams) ([]Manga, error) {
+	params := qp.ToValues()
+	var list []Manga
+	if err := c.doJSON(ctx, http.MethodGet, "/user/follows/manga", params, nil, &list); err != nil {
+		return nil, err
+	}
+	return list, nil
+}
