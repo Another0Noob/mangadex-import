@@ -36,15 +36,10 @@ func (c *Client) GetFollowedMangaList(ctx context.Context, qp QueryParams) ([]Ma
 	return list, nil
 }
 
-func (c *Client) CheckFollowedManga(ctx context.Context, id uuid.UUID, qp QueryParams) error {
+func (c *Client) CheckFollowedManga(ctx context.Context, id uuid.UUID, qp QueryParams) (bool, error) {
 	params := qp.ToValues()
 	params.Del("id")
-	return c.doCheck(ctx, http.MethodGet, "/user/follows/manga/"+id.String(), params)
-}
-
-// Optional convenience wrapper returning a bool.
-func (c *Client) IsMangaFollowed(ctx context.Context, id uuid.UUID, qp QueryParams) (bool, error) {
-	err := c.CheckFollowedManga(ctx, id, qp)
+	err := c.doCheck(ctx, http.MethodGet, "/user/follows/manga/"+id.String(), params)
 	if err == nil {
 		return true, nil
 	}
