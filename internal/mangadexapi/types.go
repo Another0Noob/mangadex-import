@@ -3,12 +3,12 @@ package mangadexapi
 import (
 	"encoding/json"
 	"net/http"
+	"time"
 
 	"golang.org/x/time/rate"
 )
 
 type AuthForm struct {
-	GrantType    string
 	Username     string
 	Password     string
 	ClientID     string
@@ -17,8 +17,9 @@ type AuthForm struct {
 
 // Token represents an authentication token.
 type Token struct {
-	AccessToken  string `json:"access_token"`
-	RefreshToken string `json:"refresh_token"`
+	AccessToken  string    `json:"access_token"`
+	RefreshToken string    `json:"refresh_token"`
+	Expiry       time.Time `json:"-"` // don't unmarshal from JSON
 }
 
 // Client is the MangaDex API client.
@@ -33,9 +34,9 @@ type Client struct {
 
 // Generic envelope (works for object or collection responses).
 type Envelope struct {
-	Result   string          `json:"result"`   // "ok" or "error"
-	Response string          `json:"response"` // "entity", "collection", etc.
-	Data     json.RawMessage `json:"data"`
+	Result   string          `json:"result"`             // "ok" or "error"
+	Response string          `json:"response,omitempty"` // "entity", "collection", etc.
+	Data     json.RawMessage `json:"data,omitempty"`
 	Errors   []APIError      `json:"errors,omitempty"`
 	Limit    *int            `json:"limit,omitempty"`
 	Offset   *int            `json:"offset,omitempty"`
@@ -56,29 +57,29 @@ type APIError struct {
 type QueryParams struct {
 	Limit                       int                       `url:"limit,omitempty"`
 	Offset                      int                       `url:"offset,omitempty"`
-	ID                          string                `url:"id,omitempty"`
+	ID                          string                    `url:"id,omitempty"`
 	Title                       string                    `url:"title,omitempty"`
-	AuthorOrArtist              string                `url:"authorOrArtist,omitempty"`
-	Authors                     []string              `url:"authors[],omitempty"`
-	Artists                     []string              `url:"artists[],omitempty"`
+	AuthorOrArtist              string                    `url:"authorOrArtist,omitempty"`
+	Authors                     []string                  `url:"authors[],omitempty"`
+	Artists                     []string                  `url:"artists[],omitempty"`
 	Year                        string                    `url:"year,omitempty"`
-	IncludedTags                []string              `url:"includedTags[],omitempty"`
+	IncludedTags                []string                  `url:"includedTags[],omitempty"`
 	IncludedTagsMode            TagsMode                  `url:"includedTagsMode,omitempty"`
-	ExcludedTags                []string              `url:"excludedTags[],omitempty"`
+	ExcludedTags                []string                  `url:"excludedTags[],omitempty"`
 	ExcludedTagsMode            TagsMode                  `url:"excludedTagsMode,omitempty"`
 	Status                      []Status                  `url:"status[],omitempty"`
 	OriginalLanguage            []string                  `url:"originalLanguage[],omitempty"`
 	ExcludedOriginalLanguage    []string                  `url:"excludedOriginalLanguage[],omitempty"`
 	AvailableTranslatedLanguage []string                  `url:"availableTranslatedLanguage[],omitempty"`
 	PublicationDemographic      []PublicationDemographic  `url:"publicationDemographic[],omitempty"`
-	IDs                         []string              `url:"ids[],omitempty"`
+	IDs                         []string                  `url:"ids[],omitempty"`
 	ContentRating               []ContentRating           `url:"contentRating[],omitempty"`
 	CreatedAtSince              string                    `url:"createdAtSince,omitempty"`
 	UpdatedAtSince              string                    `url:"updatedAtSince,omitempty"`
 	Includes                    []ReferenceExpansionManga `url:"includes[],omitempty"`
 	HasAvailableChapters        HasAvailableChapters      `url:"hasAvailableChapters,omitempty"`
 	HasUnavailableChapters      HasUnavailableChapters    `url:"hasUnavailableChapters,omitempty"`
-	Group                       string                `url:"group,omitempty"`
+	Group                       string                    `url:"group,omitempty"`
 	Order                       OrderParams               `url:"order,omitempty"`
 }
 

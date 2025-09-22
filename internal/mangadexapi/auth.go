@@ -1,59 +1,86 @@
 package mangadexapi
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
+	"strings"
+	"time"
 )
 
 const authURL = "https://auth.mangadex.org/realms/mangadex/protocol/openid-connect/token"
 
-func Authenticate(username, password, clientID, clientSecret string) (*Token, error) {
+func (c *Client) Authenticate(ctx context.Context, a AuthForm) error {
 	form := url.Values{}
 	form.Set("grant_type", "password")
-	form.Set("username", username)
-	form.Set("password", password)
-	form.Set("client_id", clientID)
-	form.Set("client_secret", clientSecret)
+	form.Set("username", a.Username)
+	form.Set("password", a.Password)
+	form.Set("client_id", a.ClientID)
+	form.Set("client_secret", a.ClientID)
 
-	resp, err := http.PostForm(authURL, form)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, authURL, strings.NewReader(form.Encode()))
 	if err != nil {
-		return nil, err
+		return err
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("auth failed: %s", resp.Status)
+		b, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("refresh failed: %s: %s", resp.Status, string(b))
 	}
 
 	var token Token
 	if err := json.NewDecoder(resp.Body).Decode(&token); err != nil {
-		return nil, err
+		return err
 	}
-	return &token, nil
+	c.token = &token
+	c.token.Expiry = time.Now().Add(15 * time.Minute)
+	return nil
 }
 
-func RefreshToken(refreshToken, clientID, clientSecret string) (*Token, error) {
+func (c *Client) RefreshToken(ctx context.Context, a AuthForm) error {
 	form := url.Values{}
 	form.Set("grant_type", "refresh_token")
-	form.Set("refresh_token", refreshToken)
-	form.Set("client_id", clientID)
-	form.Set("client_secret", clientSecret)
+	form.Set("refresh_token", c.token.RefreshToken)
+	form.Set("client_id", a.ClientID)
+	form.Set("client_secret", a.ClientSecret)
 
-	resp, err := http.PostForm(authURL, form)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, authURL, strings.NewReader(form.Encode()))
 	if err != nil {
-		return nil, err
+		return err
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("refresh failed: %s", resp.Status)
+		b, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("refresh failed: %s: %s", resp.Status, string(b))
 	}
 
 	var token Token
 	if err := json.NewDecoder(resp.Body).Decode(&token); err != nil {
-		return nil, err
+		return err
 	}
-	return &token, nil
+	if token.AccessToken != "" {
+		c.token.AccessToken = token.AccessToken
+	}
+	if token.RefreshToken != "" {
+		c.token.RefreshToken = token.RefreshToken
+	}
+	c.token.Expiry = time.Now().Add(15 * time.Minute)
+	return nil
 }
