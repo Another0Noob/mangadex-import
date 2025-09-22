@@ -4,8 +4,6 @@ import (
 	"context"
 	"errors"
 	"net/http"
-
-	"github.com/google/uuid"
 )
 
 func (c *Client) GetMangaList(ctx context.Context, qp QueryParams) ([]Manga, error) {
@@ -16,12 +14,12 @@ func (c *Client) GetMangaList(ctx context.Context, qp QueryParams) ([]Manga, err
 	}
 	return list, nil
 }
-func (c *Client) GetManga(ctx context.Context, id uuid.UUID, qp QueryParams) (*Manga, error) {
+func (c *Client) GetManga(ctx context.Context, id string, qp QueryParams) (*Manga, error) {
 	params := qp.ToValues()
 	params.Del("id")
 
 	var m Manga
-	if err := c.doData(ctx, http.MethodGet, "/manga/"+id.String(), params, nil, &m); err != nil {
+	if err := c.doData(ctx, http.MethodGet, "/manga/"+id, params, nil, &m); err != nil {
 		return nil, err
 	}
 	return &m, nil
@@ -36,10 +34,10 @@ func (c *Client) GetFollowedMangaList(ctx context.Context, qp QueryParams) ([]Ma
 	return list, nil
 }
 
-func (c *Client) CheckFollowedManga(ctx context.Context, id uuid.UUID, qp QueryParams) (bool, error) {
+func (c *Client) CheckFollowedManga(ctx context.Context, id string, qp QueryParams) (bool, error) {
 	params := qp.ToValues()
 	params.Del("id")
-	err := c.doCheck(ctx, http.MethodGet, "/user/follows/manga/"+id.String(), params)
+	err := c.doCheck(ctx, http.MethodGet, "/user/follows/manga/"+id, params)
 	if err == nil {
 		return true, nil
 	}

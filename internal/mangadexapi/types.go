@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/google/uuid"
 	"golang.org/x/time/rate"
 )
 
@@ -57,29 +56,29 @@ type APIError struct {
 type QueryParams struct {
 	Limit                       int                       `url:"limit,omitempty"`
 	Offset                      int                       `url:"offset,omitempty"`
-	ID                          uuid.UUID                 `url:"id,omitempty"`
+	ID                          string                `url:"id,omitempty"`
 	Title                       string                    `url:"title,omitempty"`
-	AuthorOrArtist              uuid.UUID                 `url:"authorOrArtist,omitempty"`
-	Authors                     []uuid.UUID               `url:"authors[],omitempty"`
-	Artists                     []uuid.UUID               `url:"artists[],omitempty"`
+	AuthorOrArtist              string                `url:"authorOrArtist,omitempty"`
+	Authors                     []string              `url:"authors[],omitempty"`
+	Artists                     []string              `url:"artists[],omitempty"`
 	Year                        string                    `url:"year,omitempty"`
-	IncludedTags                []uuid.UUID               `url:"includedTags[],omitempty"`
+	IncludedTags                []string              `url:"includedTags[],omitempty"`
 	IncludedTagsMode            TagsMode                  `url:"includedTagsMode,omitempty"`
-	ExcludedTags                []uuid.UUID               `url:"excludedTags[],omitempty"`
+	ExcludedTags                []string              `url:"excludedTags[],omitempty"`
 	ExcludedTagsMode            TagsMode                  `url:"excludedTagsMode,omitempty"`
 	Status                      []Status                  `url:"status[],omitempty"`
 	OriginalLanguage            []string                  `url:"originalLanguage[],omitempty"`
 	ExcludedOriginalLanguage    []string                  `url:"excludedOriginalLanguage[],omitempty"`
 	AvailableTranslatedLanguage []string                  `url:"availableTranslatedLanguage[],omitempty"`
 	PublicationDemographic      []PublicationDemographic  `url:"publicationDemographic[],omitempty"`
-	IDs                         []uuid.UUID               `url:"ids[],omitempty"`
+	IDs                         []string              `url:"ids[],omitempty"`
 	ContentRating               []ContentRating           `url:"contentRating[],omitempty"`
 	CreatedAtSince              string                    `url:"createdAtSince,omitempty"`
 	UpdatedAtSince              string                    `url:"updatedAtSince,omitempty"`
 	Includes                    []ReferenceExpansionManga `url:"includes[],omitempty"`
 	HasAvailableChapters        HasAvailableChapters      `url:"hasAvailableChapters,omitempty"`
 	HasUnavailableChapters      HasUnavailableChapters    `url:"hasUnavailableChapters,omitempty"`
-	Group                       uuid.UUID                 `url:"group,omitempty"`
+	Group                       string                `url:"group,omitempty"`
 	Order                       OrderParams               `url:"order,omitempty"`
 }
 
