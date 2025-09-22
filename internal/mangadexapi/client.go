@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -133,6 +134,62 @@ func (c *Client) doJSON(ctx context.Context, method, endpoint string, params url
 		return fmt.Errorf("decode data: %w", err)
 	}
 	return nil
+}
+
+var ErrNotFound = errors.New("mangadex: not found")
+
+func (c *Client) doCheck(ctx context.Context, method, endpoint string, params url.Values) error {
+	resp, err := c.doRequest(ctx, method, endpoint, params, nil)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	// Fast path real 404
+	if resp.StatusCode == http.StatusNotFound {
+		return ErrNotFound
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("read body: %w", err)
+	}
+
+	// For other non-2xx statuses give a clearer error
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		var env Envelope
+		if json.Unmarshal(body, &env) == nil && len(env.Errors) > 0 {
+			first := env.Errors[0]
+			if first.Status == http.StatusNotFound {
+				return ErrNotFound
+			}
+			return fmt.Errorf("api error (%d): %s: %s", first.Status, first.Title, first.Detail)
+		}
+		return fmt.Errorf("unexpected status %d: %s", resp.StatusCode, string(body))
+	}
+
+	var env Envelope
+	if err := json.Unmarshal(body, &env); err != nil {
+		return fmt.Errorf("decode envelope: %w (body: %s)", err, string(body))
+	}
+
+	switch env.Result {
+	case "ok":
+		return nil
+	case "error":
+		// Try to inspect embedded errors for a 404
+		if len(env.Errors) > 0 {
+			first := env.Errors[0]
+			if first.Status == http.StatusNotFound {
+				return ErrNotFound
+			}
+			return fmt.Errorf("api error: %s (%d): %s", first.Title, first.Status, first.Detail)
+		}
+		// Fallback: treat as not found only if endpoint semantics expect that.
+		return ErrNotFound
+	default:
+		return fmt.Errorf("unexpected result value: %q", env.Result)
+	}
 }
 
 // decodeData handles either an object or collection style automatically if target is slice.
