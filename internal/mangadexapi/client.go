@@ -86,110 +86,94 @@ func (c *Client) doRequest(ctx context.Context, method, endpoint string, params 
 	return resp, nil
 }
 
-// doJSON executes request, decodes into Envelope, then optionally decodes Data into out.
-func (c *Client) doJSON(ctx context.Context, method, endpoint string, params url.Values, body any, out any) error {
+var ErrNotFound = errors.New("mangadex: not found")
+
+// doEnvelope runs the request, reads body, parses (or synthesizes) an Envelope,
+// normalizing 404 handling and returning ErrNotFound where appropriate.
+func (c *Client) doEnvelope(ctx context.Context, method, endpoint string, params url.Values, body any) (*Envelope, []byte, error) {
 	resp, err := c.doRequest(ctx, method, endpoint, params, body)
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
 	defer resp.Body.Close()
 
 	b, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return fmt.Errorf("read body: %w", err)
+		return nil, nil, fmt.Errorf("read body: %w", err)
 	}
 
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		var env Envelope
-		if json.Unmarshal(b, &env) == nil && len(env.Errors) > 0 {
-			return fmt.Errorf("api error (%d): %s: %s", resp.StatusCode, env.Errors[0].Title, env.Errors[0].Detail)
-		}
-		return fmt.Errorf("unexpected status %d: %s", resp.StatusCode, string(b))
+	// Fast 404 (no JSON needed)
+	if resp.StatusCode == http.StatusNotFound {
+		return nil, b, ErrNotFound
 	}
 
 	var env Envelope
-	if err := json.Unmarshal(b, &env); err != nil {
-		return fmt.Errorf("decode envelope: %w (body: %s)", err, string(b))
+	// Try to decode JSON regardless of status to inspect API errors
+	if json.Unmarshal(b, &env) != nil {
+		// If not JSON and not success -> raw error
+		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+			return nil, b, fmt.Errorf("unexpected status %d: %s", resp.StatusCode, string(b))
+		}
+		// If success but envelope missing -> treat as protocol error
+		return nil, b, fmt.Errorf("decode envelope: not valid JSON (status %d): %s", resp.StatusCode, string(b))
 	}
 
-	// Treat any "error" result as failure, even if errors array is empty.
+	// Non-2xx: inspect API errors
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		if len(env.Errors) > 0 {
+			first := env.Errors[0]
+			if first.Status == http.StatusNotFound {
+				return &env, b, ErrNotFound
+			}
+			return &env, b, fmt.Errorf("api error (%d): %s: %s", first.Status, first.Title, first.Detail)
+		}
+		return &env, b, fmt.Errorf("unexpected status %d: %s", resp.StatusCode, string(b))
+	}
+
+	// Result-level error (even with HTTP 2xx)
 	if env.Result == "error" {
 		if len(env.Errors) > 0 {
 			first := env.Errors[0]
-			return fmt.Errorf("api error: %s (%d): %s", first.Title, first.Status, first.Detail)
+			if first.Status == http.StatusNotFound {
+				return &env, b, ErrNotFound
+			}
+			return &env, b, fmt.Errorf("api error: %s (%d): %s", first.Title, first.Status, first.Detail)
 		}
-		return fmt.Errorf("api error: result=error with no error details")
+		return &env, b, fmt.Errorf("api error: result=error with no details")
 	}
 
+	return &env, b, nil
+}
+
+// Updated doData uses shared doEnvelope
+func (c *Client) doData(ctx context.Context, method, endpoint string, params url.Values, body any, out any) error {
+	env, _, err := c.doEnvelope(ctx, method, endpoint, params, body)
+	if err != nil {
+		return err
+	}
 	if out == nil {
 		return nil
 	}
-
-	// If there is no data field, just leave out as zero value instead of obscure decode error.
-	if len(env.Data) == 0 {
+	if env == nil || len(env.Data) == 0 { // tolerate empty data
 		return nil
 	}
-
 	if err := decodeData(env.Data, out); err != nil {
 		return fmt.Errorf("decode data: %w", err)
 	}
 	return nil
 }
 
-var ErrNotFound = errors.New("mangadex: not found")
-
+// Updated doCheck also uses doEnvelope
 func (c *Client) doCheck(ctx context.Context, method, endpoint string, params url.Values) error {
-	resp, err := c.doRequest(ctx, method, endpoint, params, nil)
+	env, _, err := c.doEnvelope(ctx, method, endpoint, params, nil)
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
-
-	// Fast path real 404
-	if resp.StatusCode == http.StatusNotFound {
-		return ErrNotFound
-	}
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return fmt.Errorf("read body: %w", err)
-	}
-
-	// For other non-2xx statuses give a clearer error
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		var env Envelope
-		if json.Unmarshal(body, &env) == nil && len(env.Errors) > 0 {
-			first := env.Errors[0]
-			if first.Status == http.StatusNotFound {
-				return ErrNotFound
-			}
-			return fmt.Errorf("api error (%d): %s: %s", first.Status, first.Title, first.Detail)
-		}
-		return fmt.Errorf("unexpected status %d: %s", resp.StatusCode, string(body))
-	}
-
-	var env Envelope
-	if err := json.Unmarshal(body, &env); err != nil {
-		return fmt.Errorf("decode envelope: %w (body: %s)", err, string(body))
-	}
-
-	switch env.Result {
-	case "ok":
-		return nil
-	case "error":
-		// Try to inspect embedded errors for a 404
-		if len(env.Errors) > 0 {
-			first := env.Errors[0]
-			if first.Status == http.StatusNotFound {
-				return ErrNotFound
-			}
-			return fmt.Errorf("api error: %s (%d): %s", first.Title, first.Status, first.Detail)
-		}
-		// Fallback: treat as not found only if endpoint semantics expect that.
-		return ErrNotFound
-	default:
+	// If env.Result=="ok" we are good. Any other (already filtered errors) unexpected.
+	if env != nil && env.Result != "ok" {
 		return fmt.Errorf("unexpected result value: %q", env.Result)
 	}
+	return nil
 }
 
 // decodeData handles either an object or collection style automatically if target is slice.
