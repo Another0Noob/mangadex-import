@@ -19,7 +19,7 @@ func (c *Client) Authenticate(ctx context.Context, a AuthForm) error {
 	form.Set("username", a.Username)
 	form.Set("password", a.Password)
 	form.Set("client_id", a.ClientID)
-	form.Set("client_secret", a.ClientID)
+	form.Set("client_secret", a.ClientSecret)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, authURL, strings.NewReader(form.Encode()))
 	if err != nil {
