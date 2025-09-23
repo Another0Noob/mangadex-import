@@ -2,8 +2,8 @@ package mangadexapi
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 )
 
@@ -52,21 +52,42 @@ func (c *Client) GetMangaStatusList(ctx context.Context, qp QueryParams) (map[st
 	params := qp.ToValues()
 	params.Del("id")
 
-	m := make(map[string]ReadingStatus)
-	_, b, err := c.doEnvelope(ctx, http.MethodGet, "/manga/status", params, nil)
-	if err != nil {
-		return nil, err
-	}
 	var wrapper struct {
-		Statuses json.RawMessage `json:"statuses"`
+		Statuses map[string]ReadingStatus `json:"statuses"`
 	}
-	if err := json.Unmarshal(b, &wrapper); err != nil {
+	if err := c.doInto(ctx, http.MethodGet, "/manga/status", params, nil, &wrapper); err != nil {
 		return nil, err
 	}
-	if len(wrapper.Statuses) > 0 {
-		if err := json.Unmarshal(wrapper.Statuses, &m); err != nil {
-			return nil, err
-		}
+	return wrapper.Statuses, nil
+}
+
+func (c *Client) GetMangaStatus(ctx context.Context, id string) (*ReadingStatus, error) {
+	var wrapper struct {
+		Status ReadingStatus `json:"status"`
 	}
-	return m, nil
+	if err := c.doInto(ctx, http.MethodGet, "/manga/"+id+"/status", nil, nil, &wrapper); err != nil {
+		return nil, err
+	}
+	return &wrapper.Status, nil
+}
+
+func (c *Client) FollowManga(ctx context.Context, id string) error {
+	if err := c.doCheck(ctx, http.MethodPost, "/manga/"+id+"/follow", nil); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (c *Client) UpdateMangaStatus(ctx context.Context, id string, status ReadingStatus) error {
+	if status == "" {
+		return fmt.Errorf("empty status")
+	}
+	body := struct {
+		Status ReadingStatus `json:"status"`
+	}{Status: status}
+	var dummy struct{}
+	if err := c.doInto(ctx, http.MethodPost, "/manga/"+id+"/status", nil, body, &dummy); err != nil {
+		return err
+	}
+	return nil
 }

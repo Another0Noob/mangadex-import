@@ -145,6 +145,14 @@ func (c *Client) doEnvelope(ctx context.Context, method, endpoint string, params
 	return &env, b, nil
 }
 
+func (c *Client) doInto(ctx context.Context, method, endpoint string, params url.Values, body any, out any) error {
+    _, b, err := c.doEnvelope(ctx, method, endpoint, params, body)
+    if err != nil {
+        return err
+    }
+    return json.Unmarshal(b, out)
+}
+
 // Updated doData uses shared doEnvelope
 func (c *Client) doData(ctx context.Context, method, endpoint string, params url.Values, body any, out any) error {
 	env, _, err := c.doEnvelope(ctx, method, endpoint, params, body)
