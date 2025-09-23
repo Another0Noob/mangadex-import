@@ -217,15 +217,26 @@ func (q QueryParams) ToValues() url.Values {
 		}
 		fv := rv.Field(i)
 
-		// Handle zero / omitempty
 		if omitempty && isZeroValue(fv) {
 			continue
 		}
 
-		// Special case for Order struct.
-		if name == "order" && fv.Kind() == reflect.Struct {
-			addOrderParams(v, fv)
-			continue
+		// Special case for order: support struct OR map[string]string
+		if name == "order" {
+			switch fv.Kind() {
+			case reflect.Struct:
+				addOrderParams(v, fv)
+				continue
+			case reflect.Map:
+				for _, mk := range fv.MapKeys() {
+					mv := fv.MapIndex(mk)
+					if isZeroValue(mv) {
+						continue
+					}
+					v.Add("order["+fmt.Sprint(mk.Interface())+"]", valueToString(mv))
+				}
+				continue
+			}
 		}
 
 		switch fv.Kind() {

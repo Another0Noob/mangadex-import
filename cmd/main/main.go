@@ -46,7 +46,16 @@ func apiTest() error {
 	if err := c.Authenticate(ctx, auth); err != nil {
 		return fmt.Errorf("authenticate: %w", err)
 	}
+	var qp mangadexapi.QueryParams
+	qp.Title = "Kanojyo to Himitsu to Koimoyou"
+	qp.Order = map[string]string{"relevance": "desc"}
+	qp.Limit = 1
 
-	fmt.Println("Authenticated successfully")
+	manga, err := c.GetMangaList(ctx, qp)
+	if err != nil {
+		return fmt.Errorf("GetMangaList: %w", err)
+	}
+
+	fmt.Println(manga)
 	return nil
 }
