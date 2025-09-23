@@ -17,7 +17,7 @@ type Manga struct {
 	MyStatus string `xml:"my_status"`
 }
 
-func ParseMALFile(filePath string) (*MALData, error) {
+func ParseMALFile(filePath string) ([]Manga, error) {
 	file, err := os.Open(filePath)
 	if err != nil {
 		return nil, err
@@ -34,5 +34,5 @@ func ParseMALFile(filePath string) (*MALData, error) {
 		return nil, err
 	}
 
-	return &malData, nil
+	return malData.Entries, nil
 }

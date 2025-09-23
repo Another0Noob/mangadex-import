@@ -55,32 +55,32 @@ type APIError struct {
 
 // Advanced query params for manga search
 type QueryParams struct {
-	Limit                       int                       `url:"limit,omitempty"`
-	Offset                      int                       `url:"offset,omitempty"`
-	ID                          string                    `url:"id,omitempty"`
-	Title                       string                    `url:"title,omitempty"`
-	AuthorOrArtist              string                    `url:"authorOrArtist,omitempty"`
-	Authors                     []string                  `url:"authors[],omitempty"`
-	Artists                     []string                  `url:"artists[],omitempty"`
-	Year                        string                    `url:"year,omitempty"`
-	IncludedTags                []string                  `url:"includedTags[],omitempty"`
-	IncludedTagsMode            TagsMode                  `url:"includedTagsMode,omitempty"`
-	ExcludedTags                []string                  `url:"excludedTags[],omitempty"`
-	ExcludedTagsMode            TagsMode                  `url:"excludedTagsMode,omitempty"`
-	Status                      []Status                  `url:"status[],omitempty"`
-	OriginalLanguage            []string                  `url:"originalLanguage[],omitempty"`
-	ExcludedOriginalLanguage    []string                  `url:"excludedOriginalLanguage[],omitempty"`
-	AvailableTranslatedLanguage []string                  `url:"availableTranslatedLanguage[],omitempty"`
-	PublicationDemographic      []PublicationDemographic  `url:"publicationDemographic[],omitempty"`
-	IDs                         []string                  `url:"ids[],omitempty"`
-	ContentRating               []ContentRating           `url:"contentRating[],omitempty"`
-	CreatedAtSince              string                    `url:"createdAtSince,omitempty"`
-	UpdatedAtSince              string                    `url:"updatedAtSince,omitempty"`
-	Includes                    []ReferenceExpansionManga `url:"includes[],omitempty"`
-	HasAvailableChapters        HasAvailableChapters      `url:"hasAvailableChapters,omitempty"`
-	HasUnavailableChapters      HasUnavailableChapters    `url:"hasUnavailableChapters,omitempty"`
-	Group                       string                    `url:"group,omitempty"`
-	Order                       OrderParams               `url:"order,omitempty"`
+	Limit int `url:"limit,omitempty"`
+	// Offset                      int                       `url:"offset,omitempty"`
+	ID             string   `url:"id,omitempty"`
+	Title          string   `url:"title,omitempty"`
+	AuthorOrArtist string   `url:"authorOrArtist,omitempty"`
+	Authors        []string `url:"authors[],omitempty"`
+	Artists        []string `url:"artists[],omitempty"`
+	// Year                        string                    `url:"year,omitempty"`
+	IncludedTags     []string `url:"includedTags[],omitempty"`
+	IncludedTagsMode TagsMode `url:"includedTagsMode,omitempty"`
+	ExcludedTags     []string `url:"excludedTags[],omitempty"`
+	ExcludedTagsMode TagsMode `url:"excludedTagsMode,omitempty"`
+	// Status           []Status `url:"status[],omitempty"`
+	OriginalLanguage []string `url:"originalLanguage[],omitempty"`
+	// ExcludedOriginalLanguage    []string                  `url:"excludedOriginalLanguage[],omitempty"`
+	// AvailableTranslatedLanguage []string                  `url:"availableTranslatedLanguage[],omitempty"`
+	// PublicationDemographic      []PublicationDemographic  `url:"publicationDemographic[],omitempty"`
+	IDs           []string        `url:"ids[],omitempty"`
+	ContentRating []ContentRating `url:"contentRating[],omitempty"`
+	// CreatedAtSince              string                    `url:"createdAtSince,omitempty"`
+	// UpdatedAtSince              string                    `url:"updatedAtSince,omitempty"`
+	Includes []ReferenceExpansionManga `url:"includes[],omitempty"`
+	// HasAvailableChapters        HasAvailableChapters      `url:"hasAvailableChapters,omitempty"`
+	// HasUnavailableChapters      HasUnavailableChapters    `url:"hasUnavailableChapters,omitempty"`
+	// Group                       string                    `url:"group,omitempty"`
+	Order OrderParams `url:"order,omitempty"`
 }
 
 // OrderParams represents ordering options for manga queries.
@@ -88,8 +88,8 @@ type OrderParams map[string]string // e.g. {"title": "asc", "latestUploadedChapt
 
 // Manga represents a manga object from the MangaDex API.
 type Manga struct {
-	ID         string          `json:"id"`
-	Type       string          `json:"type"`
+	ID string `json:"id"`
+	// Type       string          `json:"type"`
 	Attributes MangaAttributes `json:"attributes"`
 	// Relationships []Relationship  `json:"relationships"`
 }
@@ -111,7 +111,7 @@ type MangaAttributes struct {
 	//	ChapterNumbersResetOnNewVolume bool                   `json:"chapterNumbersResetOnNewVolume"`
 	//	AvailableTranslatedLanguages   []string               `json:"availableTranslatedLanguages"`
 	//	LatestUploadedChapter          string                 `json:"latestUploadedChapter"`
-	Tags []Tag `json:"tags"`
+	// Tags []Tag `json:"tags"`
 	// State                          string                 `json:"state"`
 	// Version                        int                    `json:"version"`
 	// CreatedAt                      string                 `json:"createdAt"`

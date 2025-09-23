@@ -18,11 +18,11 @@ func main() {
 
 func run() error {
 	// Example: parse MAL file
-	malPtr, err := malparser.ParseMALFile("file.xml")
+	m, err := malparser.ParseMALFile("file.xml")
 	if err != nil {
 		return fmt.Errorf("parse MAL file: %w", err)
 	}
-	for _, manga := range malPtr.Entries {
+	for _, manga := range m {
 		fmt.Println(manga.Title)
 	}
 
@@ -56,6 +56,7 @@ func apiTest() error {
 		return fmt.Errorf("GetMangaList: %w", err)
 	}
 
-	fmt.Println(manga)
+	fmt.Println(manga[0].Attributes.Title["en"])
+	fmt.Println(manga[0].Attributes.AltTitles[0])
 	return nil
 }
