@@ -1,1 +1,1 @@
-trying to make a mngadex importer
+# Trying to make a mangadex importer
