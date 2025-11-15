@@ -47,6 +47,7 @@ func normalizeTitle(s string) string {
 		"the comic",
 		"(comic)",
 		"(manga)",
+		"(original)",
 	} {
 		s = strings.ReplaceAll(s, r, "")
 	}
