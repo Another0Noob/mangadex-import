@@ -1,4 +1,4 @@
-package sync
+package match
 
 import "github.com/Another0Noob/mangadex-import/internal/malparser"
 
