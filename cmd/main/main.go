@@ -24,11 +24,15 @@ func run() error {
 		return fmt.Errorf("load auth: %w", err)
 	}
 
+	fmt.Println("--- Reading MAL Manga ---")
+
 	// Parse MAL file
 	malManga, err := malparser.ParseMALFile("file.xml")
 	if err != nil {
 		return fmt.Errorf("parse MAL file: %w", err)
 	}
+
+	fmt.Printf("Got %d MAL manga.\n", len(malManga))
 
 	// Create MangaDex client
 	client := mangadexapi.NewClient()
@@ -38,6 +42,8 @@ func run() error {
 	if err := client.Authenticate(ctx, auth); err != nil {
 		return fmt.Errorf("authenticate: %w", err)
 	}
+
+	fmt.Println("--- Requesting Mangadex Manga ---")
 
 	// Get user's followed manga list from MangaDex
 	// Retrieve all followed manga with pagination (limit 100)
@@ -57,9 +63,18 @@ func run() error {
 		return fmt.Errorf("get followed manga list: %w", err)
 	}
 
-	// Perform initial matching
+	fmt.Printf("Got %d MangaDex manga.\n", len(followedManga))
+
+	fmt.Println("--- Matching Manga ---")
+
 	matchResult := match.MatchDirect(followedManga, malManga)
+	countDirect := len(matchResult.Matches)
+	fmt.Printf("Matched %d manga directly.\n", countDirect)
+
 	matchResult = match.FuzzyMatch(matchResult)
+	fmt.Printf("Fuzzy matched %d manga.\n", len(matchResult.Matches)-countDirect)
+
+	fmt.Printf("%d MAL manga remaining.\n", len(matchResult.Unmatched.MAL))
 
 	// Search for unmatched manga
 	fmt.Println("--- Searching for unmatched manga ---")
