@@ -13,7 +13,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
 	"golang.org/x/time/rate"
 )
 
@@ -146,11 +145,11 @@ func (c *Client) doEnvelope(ctx context.Context, method, endpoint string, params
 }
 
 func (c *Client) doInto(ctx context.Context, method, endpoint string, params url.Values, body any, out any) error {
-    _, b, err := c.doEnvelope(ctx, method, endpoint, params, body)
-    if err != nil {
-        return err
-    }
-    return json.Unmarshal(b, out)
+	_, b, err := c.doEnvelope(ctx, method, endpoint, params, body)
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(b, out)
 }
 
 // Updated doData uses shared doEnvelope
@@ -301,12 +300,7 @@ func isZeroValue(v reflect.Value) bool {
 }
 
 func valueToString(v reflect.Value) string {
-	switch val := v.Interface().(type) {
-	case uuid.UUID:
-		return val.String()
-	default:
-		return anyToString(val)
-	}
+	return anyToString(v.Interface())
 }
 
 func anyToString(a any) string {
