@@ -1,6 +1,7 @@
 package match
 
 import (
+	"context"
 	"strings"
 
 	"github.com/Another0Noob/mangadex-import/internal/malparser"
@@ -442,4 +443,74 @@ func abs(x int) int {
 		return -x
 	}
 	return x
+}
+
+func SearchAndMatch(ctx context.Context, client *mangadexapi.Client, malEntry MALEntry) (*MatchInfo, string, error) {
+	params := mangadexapi.QueryParams{
+		Title: malEntry.Normalized,
+		Limit: 10,
+		Order: mangadexapi.OrderParams{"relevance": "desc"},
+	}
+	mangas, err := client.GetMangaList(ctx, params)
+	if err != nil {
+		return nil, "", err
+	}
+
+	if len(mangas) == 0 {
+		return nil, "", nil
+	}
+
+	// Exact match
+	for _, manga := range mangas {
+		for lang, title := range manga.Attributes.Title {
+			if isEnglishOrRomanized(lang) && normalizeTitle(title) == malEntry.Normalized {
+				return &MatchInfo{
+					MangaDexTitle: pickOriginalTitle(manga),
+					MALTitle:      malEntry.Original.Title,
+					MatchType:     "exact",
+				}, manga.ID, nil
+			}
+		}
+		for _, altTitle := range manga.Attributes.AltTitles {
+			for lang, title := range altTitle {
+				if isEnglishOrRomanized(lang) && normalizeTitle(title) == malEntry.Normalized {
+					return &MatchInfo{
+						MangaDexTitle: pickOriginalTitle(manga),
+						MALTitle:      malEntry.Original.Title,
+						MatchType:     "exact",
+					}, manga.ID, nil
+				}
+			}
+		}
+	}
+
+	// Fuzzy match
+	for _, manga := range mangas {
+		var titles []string
+		for lang, title := range manga.Attributes.Title {
+			if isEnglishOrRomanized(lang) {
+				titles = append(titles, normalizeTitle(title))
+			}
+		}
+		for _, altTitle := range manga.Attributes.AltTitles {
+			for lang, title := range altTitle {
+				if isEnglishOrRomanized(lang) {
+					titles = append(titles, normalizeTitle(title))
+				}
+			}
+		}
+
+		if len(titles) > 0 {
+			ranks := fuzzy.RankFind(malEntry.Normalized, titles)
+			if len(ranks) > 0 {
+				return &MatchInfo{
+					MangaDexTitle: pickOriginalTitle(manga),
+					MALTitle:      malEntry.Original.Title,
+					MatchType:     "fuzzy",
+				}, manga.ID, nil
+			}
+		}
+	}
+
+	return nil, "", nil
 }
