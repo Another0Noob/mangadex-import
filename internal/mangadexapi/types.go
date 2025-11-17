@@ -55,8 +55,8 @@ type APIError struct {
 
 // Advanced query params for manga search
 type QueryParams struct {
-	Limit int `url:"limit,omitempty"`
-	// Offset                      int                       `url:"offset,omitempty"`
+	Limit          int      `url:"limit,omitempty"`
+	Offset         int      `url:"offset,omitempty"`
 	ID             string   `url:"id,omitempty"`
 	Title          string   `url:"title,omitempty"`
 	AuthorOrArtist string   `url:"authorOrArtist,omitempty"`

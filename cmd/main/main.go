@@ -40,7 +40,19 @@ func run() error {
 	}
 
 	// Get user's followed manga list from MangaDex
-	followedManga, err := client.GetFollowedMangaList(ctx, mangadexapi.QueryParams{})
+	// Retrieve all followed manga with pagination (limit 100)
+	limit := 100
+	offset := 0
+
+	firstPage, err := client.GetFollowedMangaList(ctx, mangadexapi.QueryParams{Limit: limit, Offset: offset})
+	followedManga := firstPage
+	for err == nil && len(firstPage) == limit {
+		offset += limit
+		firstPage, err = client.GetFollowedMangaList(ctx, mangadexapi.QueryParams{Limit: limit, Offset: offset})
+		if err == nil {
+			followedManga = append(followedManga, firstPage...)
+		}
+	}
 	if err != nil {
 		return fmt.Errorf("get followed manga list: %w", err)
 	}
