@@ -4,20 +4,21 @@ import (
 	"context"
 	"strings"
 
-	"github.com/Another0Noob/mangadex-import/internal/malparser"
 	"github.com/Another0Noob/mangadex-import/internal/mangadexapi"
 	"github.com/lithammer/fuzzysearch/fuzzy"
 )
 
+//TODO: Refactor for other import formats
+
 type MatchInfo struct {
 	MangaDexTitle string
-	MALTitle      string
+	ImportTitle   string
 	MatchType     string // "exact" or "fuzzy"
 }
 
-// MALEntry bundles original manga with its normalized title
-type MALEntry struct {
-	Original   malparser.Manga
+// ImportEntry bundles original manga with its normalized title
+type ImportEntry struct {
+	Original   string
 	Normalized string
 }
 
@@ -30,7 +31,7 @@ type FollowedIndexes struct {
 
 type Unmatched struct {
 	MD        []mangadexapi.Manga
-	MAL       []MALEntry // bundled to prevent index misalignment
+	Import    []ImportEntry // bundled to prevent index misalignment
 	MDIndexes FollowedIndexes
 }
 
@@ -211,13 +212,13 @@ func rebuildIndexes(oldIdx FollowedIndexes, matchedIDs map[string]struct{}) Foll
 }
 
 // MatchDirect performs exact normalized title matching
-func MatchDirect(followed []mangadexapi.Manga, malManga []malparser.Manga) MatchResult {
-	if len(followed) == 0 || len(malManga) == 0 {
+func MatchDirect(followed []mangadexapi.Manga, importManga []string) MatchResult {
+	if len(followed) == 0 || len(importManga) == 0 {
 		return MatchResult{
 			Matches: make(map[string]MatchInfo),
 			Unmatched: Unmatched{
 				MD:        followed,
-				MAL:       normalizeMALEntries(malManga),
+				Import:    normalizeImportEntries(importManga),
 				MDIndexes: BuildFollowedIndexes(followed),
 			},
 		}
@@ -236,11 +237,11 @@ func MatchDirect(followed []mangadexapi.Manga, malManga []malparser.Manga) Match
 
 	matches := make(map[string]MatchInfo)
 	matchedIDs := make(map[string]struct{})
-	matchedMALIdx := make(map[int]struct{})
+	matchedImportIdx := make(map[int]struct{})
 
 	// Find exact matches (only when unambiguous)
-	for i, mm := range malManga {
-		n := normalizeTitle(mm.Title)
+	for i, mm := range importManga {
+		n := normalizeTitle(mm)
 		if n == "" {
 			continue
 		}
@@ -251,11 +252,11 @@ func MatchDirect(followed []mangadexapi.Manga, malManga []malparser.Manga) Match
 			if _, seen := matches[id]; !seen {
 				matches[id] = MatchInfo{
 					MangaDexTitle: pickOriginalTitle(mdByID[id]),
-					MALTitle:      mm.Title,
+					ImportTitle:   mm,
 					MatchType:     "exact",
 				}
 				matchedIDs[id] = struct{}{}
-				matchedMALIdx[i] = struct{}{}
+				matchedImportIdx[i] = struct{}{}
 			}
 		}
 		// Skip ambiguous (len>1) or no match (len==0)
@@ -269,12 +270,12 @@ func MatchDirect(followed []mangadexapi.Manga, malManga []malparser.Manga) Match
 		}
 	}
 
-	unmatchedMAL := make([]MALEntry, 0, len(malManga)-len(matchedMALIdx))
-	for i, mm := range malManga {
-		if _, matched := matchedMALIdx[i]; !matched {
-			unmatchedMAL = append(unmatchedMAL, MALEntry{
+	unmatchedImport := make([]ImportEntry, 0, len(importManga)-len(matchedImportIdx))
+	for i, mm := range importManga {
+		if _, matched := matchedImportIdx[i]; !matched {
+			unmatchedImport = append(unmatchedImport, ImportEntry{
 				Original:   mm,
-				Normalized: normalizeTitle(mm.Title),
+				Normalized: normalizeTitle(mm),
 			})
 		}
 	}
@@ -283,19 +284,19 @@ func MatchDirect(followed []mangadexapi.Manga, malManga []malparser.Manga) Match
 		Matches: matches,
 		Unmatched: Unmatched{
 			MD:        unmatchedMD,
-			MAL:       unmatchedMAL,
+			Import:    unmatchedImport,
 			MDIndexes: rebuildIndexes(idx, matchedIDs),
 		},
 	}
 }
 
-// normalizeMALEntries converts MAL manga to MALEntry format
-func normalizeMALEntries(malManga []malparser.Manga) []MALEntry {
-	entries := make([]MALEntry, len(malManga))
-	for i, mm := range malManga {
-		entries[i] = MALEntry{
+// normalizeImportEntries converts MAL manga to MALEntry format
+func normalizeImportEntries(importManga []string) []ImportEntry {
+	entries := make([]ImportEntry, len(importManga))
+	for i, mm := range importManga {
+		entries[i] = ImportEntry{
 			Original:   mm,
-			Normalized: normalizeTitle(mm.Title),
+			Normalized: normalizeTitle(mm),
 		}
 	}
 	return entries
@@ -305,10 +306,10 @@ func normalizeMALEntries(malManga []malparser.Manga) []MALEntry {
 func FuzzyMatch(res MatchResult) MatchResult {
 	remaining := res.Unmatched.MDIndexes
 	unmatchedMD := res.Unmatched.MD
-	unmatchedMAL := res.Unmatched.MAL
+	unmatchedImport := res.Unmatched.Import
 
 	// Quick exits
-	if len(remaining.AllTitles) == 0 || len(unmatchedMAL) == 0 {
+	if len(remaining.AllTitles) == 0 || len(unmatchedImport) == 0 {
 		return res
 	}
 
@@ -322,9 +323,9 @@ func FuzzyMatch(res MatchResult) MatchResult {
 
 	newMatches := make(map[string]MatchInfo)
 	matchedIDs := make(map[string]struct{})
-	matchedMALIdx := make(map[int]struct{})
+	matchedImportIdx := make(map[int]struct{})
 
-	for i, entry := range unmatchedMAL {
+	for i, entry := range unmatchedImport {
 		pat := entry.Normalized
 		if pat == "" {
 			continue
@@ -358,11 +359,11 @@ func FuzzyMatch(res MatchResult) MatchResult {
 		md := mdByID[id]
 		newMatches[id] = MatchInfo{
 			MangaDexTitle: pickOriginalTitle(*md),
-			MALTitle:      entry.Original.Title,
+			ImportTitle:   entry.Original,
 			MatchType:     "fuzzy",
 		}
 		matchedIDs[id] = struct{}{}
-		matchedMALIdx[i] = struct{}{}
+		matchedImportIdx[i] = struct{}{}
 	}
 
 	// Merge new matches
@@ -383,13 +384,13 @@ func FuzzyMatch(res MatchResult) MatchResult {
 	}
 	res.Unmatched.MD = newUnmatchedMD
 
-	newUnmatchedMAL := make([]MALEntry, 0, len(unmatchedMAL))
-	for i, entry := range unmatchedMAL {
-		if _, matched := matchedMALIdx[i]; !matched {
+	newUnmatchedMAL := make([]ImportEntry, 0, len(unmatchedImport))
+	for i, entry := range unmatchedImport {
+		if _, matched := matchedImportIdx[i]; !matched {
 			newUnmatchedMAL = append(newUnmatchedMAL, entry)
 		}
 	}
-	res.Unmatched.MAL = newUnmatchedMAL
+	res.Unmatched.Import = newUnmatchedMAL
 
 	return res
 }
@@ -445,10 +446,14 @@ func abs(x int) int {
 	return x
 }
 
-func SearchAndMatch(ctx context.Context, client *mangadexapi.Client, malEntry MALEntry) (*MatchInfo, string, error) {
+func SearchAndMatch(ctx context.Context, client *mangadexapi.Client, importEntry ImportEntry, limit int) (*MatchInfo, string, error) {
+	if importEntry.Normalized == "" {
+		return nil, "", nil
+	}
+
 	params := mangadexapi.QueryParams{
-		Title: malEntry.Normalized,
-		Limit: 10,
+		Title: importEntry.Normalized,
+		Limit: limit,
 		Order: mangadexapi.OrderParams{"relevance": "desc"},
 	}
 	mangas, err := client.GetMangaList(ctx, params)
@@ -463,20 +468,20 @@ func SearchAndMatch(ctx context.Context, client *mangadexapi.Client, malEntry MA
 	// Exact match
 	for _, manga := range mangas {
 		for lang, title := range manga.Attributes.Title {
-			if isEnglishOrRomanized(lang) && normalizeTitle(title) == malEntry.Normalized {
+			if isEnglishOrRomanized(lang) && normalizeTitle(title) == importEntry.Normalized {
 				return &MatchInfo{
 					MangaDexTitle: pickOriginalTitle(manga),
-					MALTitle:      malEntry.Original.Title,
+					ImportTitle:   importEntry.Original,
 					MatchType:     "exact",
 				}, manga.ID, nil
 			}
 		}
 		for _, altTitle := range manga.Attributes.AltTitles {
 			for lang, title := range altTitle {
-				if isEnglishOrRomanized(lang) && normalizeTitle(title) == malEntry.Normalized {
+				if isEnglishOrRomanized(lang) && normalizeTitle(title) == importEntry.Normalized {
 					return &MatchInfo{
 						MangaDexTitle: pickOriginalTitle(manga),
-						MALTitle:      malEntry.Original.Title,
+						ImportTitle:   importEntry.Original,
 						MatchType:     "exact",
 					}, manga.ID, nil
 				}
@@ -485,8 +490,9 @@ func SearchAndMatch(ctx context.Context, client *mangadexapi.Client, malEntry MA
 	}
 
 	// Fuzzy match
+	var titles []string
 	for _, manga := range mangas {
-		var titles []string
+
 		for lang, title := range manga.Attributes.Title {
 			if isEnglishOrRomanized(lang) {
 				titles = append(titles, normalizeTitle(title))
@@ -501,11 +507,11 @@ func SearchAndMatch(ctx context.Context, client *mangadexapi.Client, malEntry MA
 		}
 
 		if len(titles) > 0 {
-			ranks := fuzzy.RankFind(malEntry.Normalized, titles)
+			ranks := fuzzy.RankFind(importEntry.Normalized, titles)
 			if len(ranks) > 0 {
 				return &MatchInfo{
 					MangaDexTitle: pickOriginalTitle(manga),
-					MALTitle:      malEntry.Original.Title,
+					ImportTitle:   importEntry.Original,
 					MatchType:     "fuzzy",
 				}, manga.ID, nil
 			}

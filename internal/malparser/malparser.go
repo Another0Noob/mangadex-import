@@ -36,3 +36,11 @@ func ParseMALFile(filePath string) ([]Manga, error) {
 
 	return malData.Entries, nil
 }
+
+func ReturnMALTitles(manga []Manga) []string {
+	titles := make([]string, len(manga))
+	for i, m := range manga {
+		titles[i] = m.Title
+	}
+	return titles
+}

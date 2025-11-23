@@ -17,7 +17,7 @@ type Manga struct {
 	// Origination  string   // origination column
 	// Read         string   // read column (kept as string to preserve whatever format)
 	// LastRead     string   // last_read column
-	Synonyms []string // parsed synonyms (split on comma/semicolon/pipe)
+	// Synonyms []string // parsed synonyms (split on comma/semicolon/pipe)
 	// MAL          string   // myanimelist url/id column
 	// AniList      string   // anilist url/id column
 	// MangaUpdates string   // mangaupdates url/id column
@@ -32,7 +32,7 @@ type Manga struct {
 //
 // Synonyms are split on ',', ';' or '|' and trimmed. Rows without a title are
 // skipped.
-func ParseComickFile(filePath string) ([]Manga, error) {
+func ParseComickFile(filePath string) ([]string, error) {
 	f, err := os.Open(filePath)
 	if err != nil {
 		return nil, err
@@ -70,7 +70,7 @@ func ParseComickFile(filePath string) ([]Manga, error) {
 		// "origination":  4,
 		// "read":         5,
 		// "last_read":    6,
-		"synonyms": 7,
+		// "synonyms": 7,
 		// "mal":          8,
 		// "anilist":      9,
 		// "mangaupdates": 10,
@@ -93,26 +93,28 @@ func ParseComickFile(filePath string) ([]Manga, error) {
 	// origIdx := getIndex("origination")
 	// readIdx := getIndex("read")
 	// lastReadIdx := getIndex("last_read")
-	synIdx := getIndex("synonyms")
+	// synIdx := getIndex("synonyms")
 	// malIdx := getIndex("mal")
 	// aniIdx := getIndex("anilist")
 	// muIdx := getIndex("mangaupdates")
 
-	splitSynonyms := func(s string) []string {
-		s = strings.TrimSpace(s)
-		if s == "" {
-			return nil
-		}
-		var parts []string
-		parts = strings.Split(s, ",")
-		out := make([]string, 0, len(parts))
-		for _, p := range parts {
-			if t := strings.TrimSpace(p); t != "" {
-				out = append(out, t)
+	/*
+		splitSynonyms := func(s string) []string {
+			s = strings.TrimSpace(s)
+			if s == "" {
+				return nil
 			}
+			var parts []string
+			parts = strings.Split(s, ",")
+			out := make([]string, 0, len(parts))
+			for _, p := range parts {
+				if t := strings.TrimSpace(p); t != "" {
+					out = append(out, t)
+				}
+			}
+			return out
 		}
-		return out
-	}
+	*/
 
 	get := func(rec []string, idx int) string {
 		if idx < 0 || idx >= len(rec) {
@@ -121,7 +123,7 @@ func ParseComickFile(filePath string) ([]Manga, error) {
 		return strings.TrimSpace(rec[idx])
 	}
 
-	var out []Manga
+	var out []string
 	for _, rec := range records {
 		// Skip completely empty records
 		if len(rec) == 0 {
@@ -134,20 +136,22 @@ func ParseComickFile(filePath string) ([]Manga, error) {
 			continue
 		}
 
-		m := Manga{
-			// HID:          get(rec, hidIdx),
-			Title: title,
-			// Type:         get(rec, typeIdx),
-			// Rating:       get(rec, ratingIdx),
-			// Origination:  get(rec, origIdx),
-			// Read:         get(rec, readIdx),
-			// LastRead:     get(rec, lastReadIdx),
-			Synonyms: splitSynonyms(get(rec, synIdx)),
-			// MAL:          get(rec, malIdx),
-			// AniList:      get(rec, aniIdx),
-			// MangaUpdates: get(rec, muIdx),
-		}
-		out = append(out, m)
+		/*
+			m := Manga{
+				// HID:          get(rec, hidIdx),
+				Title: title,
+				// Type:         get(rec, typeIdx),
+				// Rating:       get(rec, ratingIdx),
+				// Origination:  get(rec, origIdx),
+				// Read:         get(rec, readIdx),
+				// LastRead:     get(rec, lastReadIdx),
+				// Synonyms: splitSynonyms(get(rec, synIdx)),
+				// MAL:          get(rec, malIdx),
+				// AniList:      get(rec, aniIdx),
+				// MangaUpdates: get(rec, muIdx),
+			}
+		*/
+		out = append(out, title)
 	}
 
 	return out, nil
