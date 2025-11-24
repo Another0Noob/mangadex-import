@@ -2,6 +2,7 @@ package match
 
 import (
 	"context"
+	"errors"
 	"strings"
 
 	"github.com/Another0Noob/mangadex-import/internal/mangadexapi"
@@ -448,7 +449,7 @@ func abs(x int) int {
 
 func SearchAndMatch(ctx context.Context, client *mangadexapi.Client, importEntry ImportEntry, limit int) (*MatchInfo, string, error) {
 	if importEntry.Normalized == "" {
-		return nil, "", nil
+		return nil, "", errors.New("No title")
 	}
 
 	params := mangadexapi.QueryParams{
@@ -462,7 +463,7 @@ func SearchAndMatch(ctx context.Context, client *mangadexapi.Client, importEntry
 	}
 
 	if len(mangas) == 0 {
-		return nil, "", nil
+		return nil, "", errors.New("No search results")
 	}
 
 	// Exact match
@@ -489,34 +490,77 @@ func SearchAndMatch(ctx context.Context, client *mangadexapi.Client, importEntry
 		}
 	}
 
-	// Fuzzy match
-	var titles []string
-	for _, manga := range mangas {
+	res, err := fuzzyMatchSingle(importEntry.Normalized, mangas)
+	if err == nil {
+		return &MatchInfo{
+			MangaDexTitle: pickOriginalTitle(*res),
+			ImportTitle:   importEntry.Original,
+			MatchType:     "fuzzy",
+		}, res.ID, nil
+	}
 
-		for lang, title := range manga.Attributes.Title {
-			if isEnglishOrRomanized(lang) {
-				titles = append(titles, normalizeTitle(title))
+	return nil, "", nil
+}
+
+func fuzzyMatchSingle(input string, mdList []mangadexapi.Manga) (*mangadexapi.Manga, error) {
+
+	// Build: candidates = []string, owner = map[normalizedTitle][]index
+	candidates := []string{}
+	owners := make(map[string][]int) // normalized title -> manga indexes
+
+	for i, manga := range mdList {
+		// main titles
+		for lang, t := range manga.Attributes.Title {
+			if !isEnglishOrRomanized(lang) {
+				continue
 			}
+			norm := normalizeTitle(t)
+			if norm == "" {
+				continue
+			}
+			candidates = append(candidates, norm)
+			owners[norm] = append(owners[norm], i)
 		}
-		for _, altTitle := range manga.Attributes.AltTitles {
-			for lang, title := range altTitle {
-				if isEnglishOrRomanized(lang) {
-					titles = append(titles, normalizeTitle(title))
+
+		// alt titles
+		for _, alt := range manga.Attributes.AltTitles {
+			for lang, t := range alt {
+				if !isEnglishOrRomanized(lang) {
+					continue
 				}
-			}
-		}
-
-		if len(titles) > 0 {
-			ranks := fuzzy.RankFind(importEntry.Normalized, titles)
-			if len(ranks) > 0 {
-				return &MatchInfo{
-					MangaDexTitle: pickOriginalTitle(manga),
-					ImportTitle:   importEntry.Original,
-					MatchType:     "fuzzy",
-				}, manga.ID, nil
+				norm := normalizeTitle(t)
+				if norm == "" {
+					continue
+				}
+				candidates = append(candidates, norm)
+				owners[norm] = append(owners[norm], i)
 			}
 		}
 	}
 
-	return nil, "", nil
+	// Calculate threshold
+	thr := distanceThreshold(len(input))
+
+	// Filter candidates (optional but good)
+	candidates = filterCandidates(candidates, input, thr)
+	if len(candidates) == 0 {
+		return nil, errors.New("No good candidates")
+	}
+
+	// Fuzzy rank
+	ranks := fuzzy.RankFind(input, candidates)
+
+	best := ranks[0]
+	if best.Distance > thr {
+		return nil, errors.New("Best candidate below threshold")
+	}
+
+	// Map ranked title to MangaDex manga
+	idxList := owners[best.Target]
+
+	// If multiple mangas share the same title, you pick the first.
+	// (same behavior as your original logic)
+	idx := idxList[0]
+
+	return &mdList[idx], nil
 }
