@@ -84,3 +84,13 @@ func (c *Client) RefreshToken(ctx context.Context, a AuthForm) error {
 	c.token.Expiry = time.Now().Add(15 * time.Minute)
 	return nil
 }
+
+func (c *Client) EnsureToken(ctx context.Context, a AuthForm) error {
+	if time.Until(c.token.Expiry) < time.Minute {
+		err := c.RefreshToken(ctx, a)
+		if err != nil {
+			return fmt.Errorf("refresh token: %w", err)
+		}
+	}
+	return nil
+}

@@ -26,13 +26,13 @@ func run() error {
 
 	fmt.Println("--- Reading Comick Manga ---")
 
-	// Parse MAL file
+	// Parse Comick file
 	comickManga, err := comickparser.ParseComickFile("file.csv")
 	if err != nil {
-		return fmt.Errorf("parse MAL file: %w", err)
+		return fmt.Errorf("parse Comick file: %w", err)
 	}
 
-	fmt.Printf("Got %d MAL manga.\n", len(comickManga))
+	fmt.Printf("Got %d Comick manga.\n", len(comickManga))
 
 	// Create MangaDex client
 	client := mangadexapi.NewClient()
@@ -49,11 +49,16 @@ func run() error {
 	// Retrieve all followed manga with pagination (limit 100)
 	limit := 100
 	offset := 0
-
+	if err := client.EnsureToken(ctx, auth); err != nil {
+		return err
+	}
 	firstPage, err := client.GetFollowedMangaList(ctx, mangadexapi.QueryParams{Limit: limit, Offset: offset})
 	followedManga := firstPage
 	for err == nil && len(firstPage) == limit {
 		offset += limit
+		if err := client.EnsureToken(ctx, auth); err != nil {
+			return err
+		}
 		firstPage, err = client.GetFollowedMangaList(ctx, mangadexapi.QueryParams{Limit: limit, Offset: offset})
 		if err == nil {
 			followedManga = append(followedManga, firstPage...)
@@ -81,6 +86,9 @@ func run() error {
 	newMatches := 0
 	stillUnmatched := []match.ImportEntry{}
 	for _, importEntry := range matchResult.Unmatched.Import {
+		if err := client.EnsureToken(ctx, auth); err != nil {
+			return err
+		}
 		matchInfo, _, err := match.SearchAndMatch(ctx, client, importEntry, 10)
 		if err != nil {
 			log.Printf("error searching for %q: %v", importEntry.Original, err)
