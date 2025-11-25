@@ -538,28 +538,22 @@ func fuzzyMatchSingle(input string, mdList []mangadexapi.Manga) (*mangadexapi.Ma
 		}
 	}
 
-	// Calculate threshold
 	thr := distanceThreshold(len(input))
 
-	// Filter candidates (optional but good)
 	candidates = filterCandidates(candidates, input, thr)
 	if len(candidates) == 0 {
-		return nil, errors.New("No good candidates")
+		return nil, nil
 	}
 
-	// Fuzzy rank
 	ranks := fuzzy.RankFind(input, candidates)
 
 	best := ranks[0]
 	if best.Distance > thr {
-		return nil, errors.New("Best candidate below threshold")
+		return nil, nil
 	}
 
-	// Map ranked title to MangaDex manga
 	idxList := owners[best.Target]
 
-	// If multiple mangas share the same title, you pick the first.
-	// (same behavior as your original logic)
 	idx := idxList[0]
 
 	return &mdList[idx], nil

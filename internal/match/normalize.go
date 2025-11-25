@@ -9,8 +9,9 @@ import (
 )
 
 var (
-	reNonAlnum   = regexp.MustCompile(`[^a-z0-9\s]+`)
-	reMultiSpace = regexp.MustCompile(`\s+`)
+	reNonAlnum    = regexp.MustCompile(`[^a-z0-9\s]+`)
+	reMultiSpace  = regexp.MustCompile(`\s+`)
+	trailingParen = regexp.MustCompile(`\s*\([^)]*\)$`)
 )
 
 // stripDiacritics removes combining marks after NFD decomposition.
@@ -45,13 +46,11 @@ func normalizeTitle(s string) string {
 	for _, r := range []string{
 		"@comic",
 		"the comic",
-		"(comic)",
-		"(manga)",
-		"(original)",
-		"(uncensored)",
 	} {
 		s = strings.ReplaceAll(s, r, "")
 	}
+
+	s = trailingParen.ReplaceAllString(s, "")
 
 	// Remove all non-alphanumeric (keep spaces)
 	s = reNonAlnum.ReplaceAllString(s, " ")
