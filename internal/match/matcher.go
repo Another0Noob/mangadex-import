@@ -111,7 +111,7 @@ func BuildFollowedIndexes(followed []mangadexapi.Manga) FollowedIndexes {
 			if !isEnglishOrRomanized(lang) || title == "" {
 				continue
 			}
-			n := normalizeTitle(title)
+			n := NormalizeTitle(title)
 			if n == "" {
 				continue
 			}
@@ -126,7 +126,7 @@ func BuildFollowedIndexes(followed []mangadexapi.Manga) FollowedIndexes {
 				if !isEnglishOrRomanized(lang) || title == "" {
 					continue
 				}
-				n := normalizeTitle(title)
+				n := NormalizeTitle(title)
 				if n == "" {
 					continue
 				}
@@ -242,7 +242,7 @@ func MatchDirect(followed []mangadexapi.Manga, importManga []string) MatchResult
 
 	// Find exact matches (only when unambiguous)
 	for i, mm := range importManga {
-		n := normalizeTitle(mm)
+		n := NormalizeTitle(mm)
 		if n == "" {
 			continue
 		}
@@ -276,7 +276,7 @@ func MatchDirect(followed []mangadexapi.Manga, importManga []string) MatchResult
 		if _, matched := matchedImportIdx[i]; !matched {
 			unmatchedImport = append(unmatchedImport, ImportEntry{
 				Original:   mm,
-				Normalized: normalizeTitle(mm),
+				Normalized: NormalizeTitle(mm),
 			})
 		}
 	}
@@ -297,7 +297,7 @@ func normalizeImportEntries(importManga []string) []ImportEntry {
 	for i, mm := range importManga {
 		entries[i] = ImportEntry{
 			Original:   mm,
-			Normalized: normalizeTitle(mm),
+			Normalized: NormalizeTitle(mm),
 		}
 	}
 	return entries
@@ -469,7 +469,7 @@ func SearchAndMatch(ctx context.Context, client *mangadexapi.Client, importEntry
 	// Exact match
 	for _, manga := range mangas {
 		for lang, title := range manga.Attributes.Title {
-			if isEnglishOrRomanized(lang) && normalizeTitle(title) == importEntry.Normalized {
+			if isEnglishOrRomanized(lang) && NormalizeTitle(title) == importEntry.Normalized {
 				return &MatchInfo{
 					MangaDexTitle: pickOriginalTitle(manga),
 					ImportTitle:   importEntry.Original,
@@ -479,7 +479,7 @@ func SearchAndMatch(ctx context.Context, client *mangadexapi.Client, importEntry
 		}
 		for _, altTitle := range manga.Attributes.AltTitles {
 			for lang, title := range altTitle {
-				if isEnglishOrRomanized(lang) && normalizeTitle(title) == importEntry.Normalized {
+				if isEnglishOrRomanized(lang) && NormalizeTitle(title) == importEntry.Normalized {
 					return &MatchInfo{
 						MangaDexTitle: pickOriginalTitle(manga),
 						ImportTitle:   importEntry.Original,
@@ -514,7 +514,7 @@ func fuzzyMatchSingle(input string, mdList []mangadexapi.Manga) (*mangadexapi.Ma
 			if !isEnglishOrRomanized(lang) {
 				continue
 			}
-			norm := normalizeTitle(t)
+			norm := NormalizeTitle(t)
 			if norm == "" {
 				continue
 			}
@@ -528,7 +528,7 @@ func fuzzyMatchSingle(input string, mdList []mangadexapi.Manga) (*mangadexapi.Ma
 				if !isEnglishOrRomanized(lang) {
 					continue
 				}
-				norm := normalizeTitle(t)
+				norm := NormalizeTitle(t)
 				if norm == "" {
 					continue
 				}

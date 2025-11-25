@@ -9,7 +9,8 @@ import (
 )
 
 var (
-	reNonAlnum    = regexp.MustCompile(`[^a-z0-9\s]+`)
+	reNonAlnum    = regexp.MustCompile(`[^a-zA-Z0-9\s-]+`)
+	reMinus       = regexp.MustCompile(`-`)
 	reMultiSpace  = regexp.MustCompile(`\s+`)
 	trailingParen = regexp.MustCompile(`\s*\([^)]*\)$`)
 )
@@ -28,7 +29,7 @@ func stripDiacritics(s string) string {
 	return b.String()
 }
 
-func normalizeTitle(s string) string {
+func NormalizeTitle(s string) string {
 	s = strings.TrimSpace(s)
 	if s == "" {
 		return ""
@@ -52,8 +53,9 @@ func normalizeTitle(s string) string {
 
 	s = trailingParen.ReplaceAllString(s, "")
 
-	// Remove all non-alphanumeric (keep spaces)
-	s = reNonAlnum.ReplaceAllString(s, " ")
+	s = reNonAlnum.ReplaceAllString(s, "")
+
+	s = reMinus.ReplaceAllString(s, " ")
 
 	// Normalize 'wo' particle to 'o'
 	padded := " " + s + " "

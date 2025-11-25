@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 
@@ -18,21 +19,21 @@ func main() {
 }
 
 func run() error {
-	// Load configuration
-	auth, err := config.LoadAuth("config.ini")
-	if err != nil {
-		return fmt.Errorf("load auth: %w", err)
-	}
-
 	fmt.Println("--- Reading Comick Manga ---")
 
 	// Parse Comick file
-	comickManga, err := comickparser.ParseComickFile("file.csv")
+	comickManga, err := comickparser.ParseComickFile("test.csv")
 	if err != nil {
 		return fmt.Errorf("parse Comick file: %w", err)
 	}
 
 	fmt.Printf("Got %d Comick manga.\n", len(comickManga))
+
+	// Load configuration
+	auth, err := config.LoadAuth("config.ini")
+	if err != nil {
+		return fmt.Errorf("load auth: %w", err)
+	}
 
 	// Create MangaDex client
 	client := mangadexapi.NewClient()
@@ -107,6 +108,61 @@ func run() error {
 
 	fmt.Printf("\nFound %d new matches.\n", newMatches)
 	fmt.Printf("%d manga remain unmatched.\n", len(stillUnmatched))
+
+	return nil
+}
+
+func test() error {
+	// Load configuration
+	auth, err := config.LoadAuth("config.ini")
+	if err != nil {
+		return fmt.Errorf("load auth: %w", err)
+	}
+
+	// Create MangaDex client
+	client := mangadexapi.NewClient()
+	ctx := context.Background()
+
+	// Authenticate with MangaDex
+	if err := client.Authenticate(ctx, auth); err != nil {
+		return fmt.Errorf("authenticate: %w", err)
+	}
+
+	testTitle := "300-nen Fuuinsareshi Jaryuu-chan to Tomodachi ni Narimashita"
+	fmt.Println(testTitle)
+
+	params := mangadexapi.QueryParams{
+		Title: testTitle,
+		Limit: 1,
+		Order: mangadexapi.OrderParams{"relevance": "desc"},
+	}
+	mangas, err := client.GetMangaList(ctx, params)
+	if err != nil {
+		return err
+	}
+
+	if len(mangas) == 0 {
+		return errors.New("No search results")
+	}
+
+	fmt.Println(mangas)
+
+	testTitle = match.NormalizeTitle(testTitle)
+
+	fmt.Println(testTitle)
+
+	params.Title = match.NormalizeTitle(testTitle)
+
+	mangas2, err2 := client.GetMangaList(ctx, params)
+	if err2 != nil {
+		return err
+	}
+
+	if len(mangas2) == 0 {
+		return errors.New("No search results")
+	}
+
+	fmt.Println(mangas2)
 
 	return nil
 }
