@@ -164,6 +164,7 @@ func (c *Client) doData(ctx context.Context, method, endpoint string, params url
 	if env == nil || len(env.Data) == 0 { // tolerate empty data
 		return nil
 	}
+
 	if err := decodeData(env.Data, out); err != nil {
 		return fmt.Errorf("decode data: %w", err)
 	}

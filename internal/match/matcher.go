@@ -3,6 +3,8 @@ package match
 import (
 	"context"
 	"errors"
+	"log"
+	"sort"
 	"strings"
 
 	"github.com/Another0Noob/mangadex-import/internal/mangadexapi"
@@ -155,13 +157,46 @@ func BuildFollowedIndexes(followed []mangadexapi.Manga) FollowedIndexes {
 }
 
 // buildOwnerSets inverts IDToTitles to normalized-title -> []MangaDexID
+// This version deduplicates IDs per normalized title (handles cases where a
+// single manga has the same normalized string as both main and alt title).
+// It also logs ambiguous normalized titles (those owned by multiple different IDs)
+// along with per-ID normalized titles to aid debugging.
 func buildOwnerSets(idToTitles map[string][]string) map[string][]string {
-	owners := make(map[string][]string)
+	// temporary map: title -> set of IDs
+	tmp := make(map[string]map[string]struct{})
+
 	for id, titles := range idToTitles {
 		for _, t := range titles {
-			owners[t] = append(owners[t], id)
+			if tmp[t] == nil {
+				tmp[t] = make(map[string]struct{})
+			}
+			tmp[t][id] = struct{}{}
 		}
 	}
+
+	owners := make(map[string][]string, len(tmp))
+	for t, idSet := range tmp {
+		ids := make([]string, 0, len(idSet))
+		for id := range idSet {
+			ids = append(ids, id)
+		}
+		sort.Strings(ids) // deterministic output
+		owners[t] = ids
+
+		if len(ids) > 1 {
+			// Build human-friendly per-ID title summary for the log
+			perID := make([]string, 0, len(ids))
+			for _, id := range ids {
+				if titles, ok := idToTitles[id]; ok {
+					perID = append(perID, id+": ["+strings.Join(titles, ", ")+"]")
+				} else {
+					perID = append(perID, id+": []")
+				}
+			}
+			log.Printf("Ambiguous normalized title %q is owned by multiple IDs: %v; per-ID normalized titles: %v", t, ids, perID)
+		}
+	}
+
 	return owners
 }
 
@@ -260,7 +295,7 @@ func MatchDirect(followed []mangadexapi.Manga, importManga []string) MatchResult
 				matchedImportIdx[i] = struct{}{}
 			}
 		}
-		// Skip ambiguous (len>1) or no match (len==0)
+		// Skip ambiguous (len>1) or no match (len==0). Ambiguous cases are logged by buildOwnerSets.
 	}
 
 	// Build unmatched sets
@@ -348,6 +383,7 @@ func FuzzyMatch(res MatchResult) MatchResult {
 		candNorm := ranks[0].Target
 		ids := owners[candNorm]
 		if len(ids) != 1 {
+			// ambiguous or unmapped; ambiguous cases are logged by buildOwnerSets
 			continue
 		}
 
@@ -491,7 +527,7 @@ func SearchAndMatch(ctx context.Context, client *mangadexapi.Client, importEntry
 	}
 
 	res, err := fuzzyMatchSingle(importEntry.Normalized, mangas)
-	if err == nil {
+	if err == nil && res != nil {
 		return &MatchInfo{
 			MangaDexTitle: pickOriginalTitle(*res),
 			ImportTitle:   importEntry.Original,
@@ -546,6 +582,9 @@ func fuzzyMatchSingle(input string, mdList []mangadexapi.Manga) (*mangadexapi.Ma
 	}
 
 	ranks := fuzzy.RankFind(input, candidates)
+	if len(ranks) == 0 {
+		return nil, nil
+	}
 
 	best := ranks[0]
 	if best.Distance > thr {
@@ -553,6 +592,21 @@ func fuzzyMatchSingle(input string, mdList []mangadexapi.Manga) (*mangadexapi.Ma
 	}
 
 	idxList := owners[best.Target]
+
+	// If the same manga index was appended multiple times (duplicate main/alt same norm),
+	// deduplicate indexes to avoid treating them as multiple owners.
+	if len(idxList) > 1 {
+		seen := make(map[int]struct{})
+		uniq := make([]int, 0, len(idxList))
+		for _, idx := range idxList {
+			if _, ok := seen[idx]; ok {
+				continue
+			}
+			seen[idx] = struct{}{}
+			uniq = append(uniq, idx)
+		}
+		idxList = uniq
+	}
 
 	idx := idxList[0]
 

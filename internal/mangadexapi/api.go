@@ -26,13 +26,31 @@ func (c *Client) GetManga(ctx context.Context, id string, qp QueryParams) (*Mang
 	return &m, nil
 }
 
-func (c *Client) GetFollowedMangaList(ctx context.Context, qp QueryParams) ([]Manga, error) {
+func (c *Client) GetFollowedMangaList(ctx context.Context, qp QueryParams) ([]Manga, Stats, error) {
 	params := qp.ToValues()
-	var list []Manga
-	if err := c.doData(ctx, http.MethodGet, "/user/follows/manga", params, nil, &list); err != nil {
-		return nil, err
+	env, _, err := c.doEnvelope(ctx, http.MethodGet, "/user/follows/manga", params, nil)
+	if err != nil {
+		return nil, Stats{}, err
 	}
-	return list, nil
+	if env == nil || len(env.Data) == 0 { // tolerate empty data
+		return nil, Stats{}, nil
+	}
+	var s Stats
+	s.Limit = *env.Limit
+	s.Offset = *env.Offset
+	s.Total = *env.Total
+
+	var list []Manga
+	if err := decodeData(env.Data, &list); err != nil {
+		return nil, Stats{}, fmt.Errorf("decode data: %w", err)
+	}
+	return list, s, nil
+}
+
+type Stats struct {
+	Limit  int
+	Offset int
+	Total  int
 }
 
 func (c *Client) CheckFollowedManga(ctx context.Context, id string, qp QueryParams) (bool, error) {
