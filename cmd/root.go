@@ -52,11 +52,11 @@ func init() {
 }
 
 func runFollow(configPath, inputPath string) error {
-	fmt.Println("--- Reading Comick Manga ---")
+	fmt.Println("--- Reading Manga ---")
 
 	inputManga, err := mangaparser.Parse(inputPath)
 	if err != nil {
-		return fmt.Errorf("parse Comick file: %w", err)
+		return fmt.Errorf("parse file: %w", err)
 	}
 
 	fmt.Printf("Got %d manga.\n", len(inputManga))
