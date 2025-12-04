@@ -30,6 +30,26 @@ func (c *Client) LoadAuth(path string) error {
 	return nil
 }
 
+// LoadAuthFrom loads authentication directly from an AuthForm struct
+func (c *Client) LoadAuthFrom(auth AuthForm) error {
+	// Validate required fields
+	if auth.Username == "" {
+		return fmt.Errorf("username is required")
+	}
+	if auth.Password == "" {
+		return fmt.Errorf("password is required")
+	}
+	if auth.ClientID == "" {
+		return fmt.Errorf("client_id is required")
+	}
+	if auth.ClientSecret == "" {
+		return fmt.Errorf("client_secret is required")
+	}
+
+	c.auth = auth
+	return nil
+}
+
 func (c *Client) Authenticate(ctx context.Context) error {
 	form := url.Values{}
 	form.Set("grant_type", "password")

@@ -24,7 +24,7 @@ Cobra is a CLI library for Go that empowers applications.
 This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		return runMatch(cfgFile, inputFile)
+		return runMatch(authFile, inputFile)
 	},
 }
 
@@ -32,13 +32,13 @@ func init() {
 	rootCmd.AddCommand(matchCmd)
 
 	matchCmd.Flags().StringVarP(
-		&cfgFile,
-		"config",
-		"c",
+		&authFile,
+		"auth",
+		"a",
 		"",
-		"path to config file",
+		"path to auth file",
 	)
-	matchCmd.MarkFlagRequired("config")
+	matchCmd.MarkFlagRequired("auth")
 
 	matchCmd.Flags().StringVarP(
 		&inputFile,
@@ -50,7 +50,7 @@ func init() {
 	matchCmd.MarkFlagRequired("input")
 }
 
-func runMatch(configPath, inputPath string) error {
+func runMatch(authPath, inputPath string) error {
 	fmt.Println("--- Reading Manga ---")
 
 	inputManga, err := mangaparser.Parse(inputPath)
@@ -63,7 +63,7 @@ func runMatch(configPath, inputPath string) error {
 	client := mangadexapi.NewClient()
 	ctx := context.Background()
 
-	if err := client.LoadAuth(configPath); err != nil {
+	if err := client.LoadAuth(authPath); err != nil {
 		return fmt.Errorf("load auth: %w", err)
 	}
 
@@ -89,18 +89,7 @@ func runMatch(configPath, inputPath string) error {
 	matchResult = match.FuzzyMatch(matchResult)
 	fmt.Printf("Fuzzy matched %d manga.\n", len(matchResult.Matches)-countDirect)
 
-	fmt.Printf("%d MAL manga remaining.\n", len(matchResult.Unmatched.Import))
-
-	// Search for unmatched manga
-	fmt.Println("--- Searching for unmatched manga ---")
-
-	newMatches, stillUnmatched, err := match.SearchAndFollow(ctx, client, matchResult.Unmatched.Import, false)
-	if err != nil {
-		return fmt.Errorf("Search: %w", err)
-	}
-
-	fmt.Printf("\nFound %d new matches.\n", len(newMatches))
-	fmt.Printf("%d manga remain unmatched.\n", len(stillUnmatched))
+	fmt.Printf("%d manga remaining.\n", len(matchResult.Unmatched.Import))
 
 	return nil
 }

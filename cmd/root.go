@@ -12,7 +12,7 @@ import (
 )
 
 var (
-	cfgFile   string
+	authFile  string
 	inputFile string
 )
 
@@ -21,7 +21,7 @@ var rootCmd = &cobra.Command{
 	Short: "A brief description of your application",
 	Long:  `...`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		return runFollow(cfgFile, inputFile)
+		return runFollow(authFile, inputFile)
 	},
 }
 
@@ -33,13 +33,13 @@ func Execute() {
 
 func init() {
 	rootCmd.Flags().StringVarP(
-		&cfgFile,
-		"config",
-		"c",
+		&authFile,
+		"auth",
+		"a",
 		"",
-		"path to config file",
+		"path to auth file",
 	)
-	rootCmd.MarkFlagRequired("config")
+	rootCmd.MarkFlagRequired("auth")
 
 	rootCmd.Flags().StringVarP(
 		&inputFile,
@@ -51,7 +51,7 @@ func init() {
 	rootCmd.MarkFlagRequired("input")
 }
 
-func runFollow(configPath, inputPath string) error {
+func runFollow(authPath, inputPath string) error {
 	fmt.Println("--- Reading Manga ---")
 
 	inputManga, err := mangaparser.Parse(inputPath)
@@ -64,7 +64,7 @@ func runFollow(configPath, inputPath string) error {
 	client := mangadexapi.NewClient()
 	ctx := context.Background()
 
-	if err := client.LoadAuth(configPath); err != nil {
+	if err := client.LoadAuth(authPath); err != nil {
 		return fmt.Errorf("load auth: %w", err)
 	}
 

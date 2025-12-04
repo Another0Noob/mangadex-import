@@ -2,6 +2,7 @@ package comickparser
 
 import (
 	"encoding/csv"
+	"fmt"
 	"io"
 	"os"
 	"strings"
@@ -32,14 +33,21 @@ type Manga struct {
 //
 // Synonyms are split on ',', ';' or '|' and trimmed. Rows without a title are
 // skipped.
-func ParseComickFile(filePath string) ([]string, error) {
-	f, err := os.Open(filePath)
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
 
-	r := csv.NewReader(f)
+// ParseComickFile parses a Comick CSV file from disk (original)
+func ParseComickFile(path string) ([]string, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, fmt.Errorf("open file: %w", err)
+	}
+	defer file.Close()
+
+	return ParseComickReader(file)
+}
+
+// ParseComickReader parses Comick CSV data from any io.Reader
+func ParseComickReader(reader io.Reader) ([]string, error) {
+	r := csv.NewReader(reader)
 	// Read header row (required for mapping). If EOF, return empty slice.
 	header, err := r.Read()
 	if err != nil {

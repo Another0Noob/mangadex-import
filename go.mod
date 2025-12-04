@@ -5,6 +5,7 @@ go 1.25.1
 require golang.org/x/time v0.14.0
 
 require (
+	github.com/google/uuid v1.6.0
 	github.com/lithammer/fuzzysearch v1.1.8
 	github.com/spf13/cobra v1.10.2
 	golang.org/x/text v0.9.0

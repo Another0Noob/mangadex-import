@@ -24,7 +24,7 @@ Cobra is a CLI library for Go that empowers applications.
 This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		return runExport(cfgFile)
+		return runExport(authFile)
 	},
 }
 
@@ -32,21 +32,21 @@ func init() {
 	rootCmd.AddCommand(exportCmd)
 
 	exportCmd.Flags().StringVarP(
-		&cfgFile,
-		"config",
-		"c",
+		&authFile,
+		"auth",
+		"a",
 		"",
-		"path to config file",
+		"path to auth file",
 	)
-	exportCmd.MarkFlagRequired("config")
+	exportCmd.MarkFlagRequired("auth")
 
 }
 
-func runExport(configPath string) error {
+func runExport(authPath string) error {
 	client := mangadexapi.NewClient()
 	ctx := context.Background()
 
-	err := client.LoadAuth(configPath)
+	err := client.LoadAuth(authPath)
 	if err != nil {
 		return fmt.Errorf("load auth: %w", err)
 	}

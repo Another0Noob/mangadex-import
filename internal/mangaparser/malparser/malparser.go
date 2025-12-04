@@ -2,13 +2,14 @@ package malparser
 
 import (
 	"encoding/xml"
+	"fmt"
 	"io"
 	"os"
 )
 
 type MALData struct {
-	XMLName xml.Name `xml:"myanimelist"`
-	Entries []Manga  `xml:"manga"`
+	// XMLName xml.Name `xml:"myanimelist"`
+	Entries []Manga `xml:"manga"`
 }
 
 type Manga struct {
@@ -17,16 +18,21 @@ type Manga struct {
 	MyStatus string `xml:"my_status"`
 }
 
-func ParseMALFile(filePath string) ([]Manga, error) {
-	file, err := os.Open(filePath)
+func ParseMALFile(path string) (*MALData, error) {
+	file, err := os.Open(path)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("open file: %w", err)
 	}
 	defer file.Close()
 
-	data, err := io.ReadAll(file)
+	return ParseMALReader(file)
+}
+
+// ParseMALReader parses MAL XML data from any io.Reader
+func ParseMALReader(reader io.Reader) (*MALData, error) {
+	data, err := io.ReadAll(reader)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("read data: %w", err)
 	}
 
 	var malData MALData
@@ -34,12 +40,12 @@ func ParseMALFile(filePath string) ([]Manga, error) {
 		return nil, err
 	}
 
-	return malData.Entries, nil
+	return &malData, nil
 }
 
-func ReturnMALTitles(manga []Manga) []string {
-	titles := make([]string, len(manga))
-	for i, m := range manga {
+func ReturnMALTitles(manga *MALData) []string {
+	titles := make([]string, len(manga.Entries))
+	for i, m := range manga.Entries {
 		titles[i] = m.Title
 	}
 	return titles
