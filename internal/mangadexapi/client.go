@@ -35,11 +35,6 @@ func NewClient() *Client {
 	}
 }
 
-// SetToken sets the authentication token for the client.
-func (c *Client) SetToken(token *Token) {
-	c.token = token
-}
-
 // doRequest performs an HTTP request to the MangaDex API (raw, no JSON decoding).
 func (c *Client) doRequest(ctx context.Context, method, endpoint string, params url.Values, body interface{}) (*http.Response, error) {
 	// Rate limiting

@@ -7,10 +7,10 @@ import (
 	"net/http"
 )
 
-func (c *Client) GetMangaList(ctx context.Context, a *AuthForm, qp QueryParams) ([]Manga, error) {
+func (c *Client) GetMangaList(ctx context.Context, qp QueryParams) ([]Manga, error) {
 	params := qp.ToValues()
 	var list []Manga
-	if err := c.EnsureToken(ctx, a); err != nil {
+	if err := c.EnsureToken(ctx); err != nil {
 		return nil, err
 	}
 	if err := c.doData(ctx, http.MethodGet, "/manga", params, nil, &list); err != nil {
@@ -19,11 +19,11 @@ func (c *Client) GetMangaList(ctx context.Context, a *AuthForm, qp QueryParams) 
 	return list, nil
 }
 
-func (c *Client) GetManga(ctx context.Context, a *AuthForm, id string, qp QueryParams) (*Manga, error) {
+func (c *Client) GetManga(ctx context.Context, id string, qp QueryParams) (*Manga, error) {
 	params := qp.ToValues()
 	params.Del("id")
 	var m Manga
-	if err := c.EnsureToken(ctx, a); err != nil {
+	if err := c.EnsureToken(ctx); err != nil {
 		return nil, err
 	}
 	if err := c.doData(ctx, http.MethodGet, "/manga/"+id, params, nil, &m); err != nil {
@@ -32,9 +32,9 @@ func (c *Client) GetManga(ctx context.Context, a *AuthForm, id string, qp QueryP
 	return &m, nil
 }
 
-func (c *Client) GetFollowedMangaList(ctx context.Context, a *AuthForm, qp QueryParams) ([]Manga, Stats, error) {
+func (c *Client) GetFollowedMangaList(ctx context.Context, qp QueryParams) ([]Manga, Stats, error) {
 	params := qp.ToValues()
-	if err := c.EnsureToken(ctx, a); err != nil {
+	if err := c.EnsureToken(ctx); err != nil {
 		return nil, Stats{}, err
 	}
 	env, _, err := c.doEnvelope(ctx, http.MethodGet, "/user/follows/manga", params, nil)
@@ -62,10 +62,10 @@ type Stats struct {
 	Total  int
 }
 
-func (c *Client) CheckFollowedManga(ctx context.Context, a *AuthForm, id string, qp QueryParams) (bool, error) {
+func (c *Client) CheckFollowedManga(ctx context.Context, id string, qp QueryParams) (bool, error) {
 	params := qp.ToValues()
 	params.Del("id")
-	if err := c.EnsureToken(ctx, a); err != nil {
+	if err := c.EnsureToken(ctx); err != nil {
 		return false, err
 	}
 	err := c.doCheck(ctx, http.MethodGet, "/user/follows/manga/"+id, params)
@@ -78,13 +78,13 @@ func (c *Client) CheckFollowedManga(ctx context.Context, a *AuthForm, id string,
 	return false, err
 }
 
-func (c *Client) GetMangaStatusList(ctx context.Context, a *AuthForm, qp QueryParams) (map[string]ReadingStatus, error) {
+func (c *Client) GetMangaStatusList(ctx context.Context, qp QueryParams) (map[string]ReadingStatus, error) {
 	params := qp.ToValues()
 	params.Del("id")
 	var wrapper struct {
 		Statuses map[string]ReadingStatus `json:"statuses"`
 	}
-	if err := c.EnsureToken(ctx, a); err != nil {
+	if err := c.EnsureToken(ctx); err != nil {
 		return nil, err
 	}
 	if err := c.doInto(ctx, http.MethodGet, "/manga/status", params, nil, &wrapper); err != nil {
@@ -93,11 +93,11 @@ func (c *Client) GetMangaStatusList(ctx context.Context, a *AuthForm, qp QueryPa
 	return wrapper.Statuses, nil
 }
 
-func (c *Client) GetMangaStatus(ctx context.Context, a *AuthForm, id string) (*ReadingStatus, error) {
+func (c *Client) GetMangaStatus(ctx context.Context, id string) (*ReadingStatus, error) {
 	var wrapper struct {
 		Status ReadingStatus `json:"status"`
 	}
-	if err := c.EnsureToken(ctx, a); err != nil {
+	if err := c.EnsureToken(ctx); err != nil {
 		return nil, err
 	}
 	if err := c.doInto(ctx, http.MethodGet, "/manga/"+id+"/status", nil, nil, &wrapper); err != nil {
@@ -106,8 +106,8 @@ func (c *Client) GetMangaStatus(ctx context.Context, a *AuthForm, id string) (*R
 	return &wrapper.Status, nil
 }
 
-func (c *Client) FollowManga(ctx context.Context, a *AuthForm, id string) error {
-	if err := c.EnsureToken(ctx, a); err != nil {
+func (c *Client) FollowManga(ctx context.Context, id string) error {
+	if err := c.EnsureToken(ctx); err != nil {
 		return err
 	}
 	if err := c.doCheck(ctx, http.MethodPost, "/manga/"+id+"/follow", nil); err != nil {
@@ -116,7 +116,7 @@ func (c *Client) FollowManga(ctx context.Context, a *AuthForm, id string) error 
 	return nil
 }
 
-func (c *Client) UpdateMangaStatus(ctx context.Context, a *AuthForm, id string, status ReadingStatus) error {
+func (c *Client) UpdateMangaStatus(ctx context.Context, id string, status ReadingStatus) error {
 	if status == "" {
 		return fmt.Errorf("empty status")
 	}
@@ -124,7 +124,7 @@ func (c *Client) UpdateMangaStatus(ctx context.Context, a *AuthForm, id string, 
 		Status ReadingStatus `json:"status"`
 	}{Status: status}
 	var dummy struct{}
-	if err := c.EnsureToken(ctx, a); err != nil {
+	if err := c.EnsureToken(ctx); err != nil {
 		return err
 	}
 	if err := c.doInto(ctx, http.MethodPost, "/manga/"+id+"/status", nil, body, &dummy); err != nil {
@@ -133,14 +133,14 @@ func (c *Client) UpdateMangaStatus(ctx context.Context, a *AuthForm, id string, 
 	return nil
 }
 
-func (c *Client) GetAllFollowed(ctx context.Context, a *AuthForm) ([]Manga, error) {
+func (c *Client) GetAllFollowed(ctx context.Context) ([]Manga, error) {
 	limit := 100
 	offset := 0
-	firstPage, s, err := c.GetFollowedMangaList(ctx, a, QueryParams{Limit: limit, Offset: offset})
+	firstPage, s, err := c.GetFollowedMangaList(ctx, QueryParams{Limit: limit, Offset: offset})
 	followedManga := firstPage
 	for err == nil && len(followedManga) != s.Total {
 		offset += len(firstPage)
-		firstPage, _, err = c.GetFollowedMangaList(ctx, a, QueryParams{Limit: limit, Offset: offset})
+		firstPage, _, err = c.GetFollowedMangaList(ctx, QueryParams{Limit: limit, Offset: offset})
 		if err == nil {
 			followedManga = append(followedManga, firstPage...)
 		}

@@ -29,6 +29,7 @@ type Client struct {
 	userAgent   string
 	rateLimiter *rate.Limiter
 
+	auth  AuthForm
 	token *Token
 }
 

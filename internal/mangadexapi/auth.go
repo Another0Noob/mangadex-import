@@ -15,27 +15,28 @@ import (
 
 const authURL = "https://auth.mangadex.org/realms/mangadex/protocol/openid-connect/token"
 
-func LoadAuth(path string) (AuthForm, error) {
+func (c *Client) LoadAuth(path string) error {
 	var m AuthForm
 	cfg, err := ini.Load(path)
 	if err != nil {
-		return m, fmt.Errorf("load auth config %s: %w", path, err)
+		return fmt.Errorf("load auth config %s: %w", path, err)
 	}
 	sec := cfg.Section("mangadex")
 	m.Username = sec.Key("username").String()
 	m.Password = sec.Key("password").String()
 	m.ClientID = sec.Key("client_id").String()
 	m.ClientSecret = sec.Key("client_secret").String()
-	return m, nil
+	c.auth = m
+	return nil
 }
 
-func (c *Client) Authenticate(ctx context.Context, a *AuthForm) error {
+func (c *Client) Authenticate(ctx context.Context) error {
 	form := url.Values{}
 	form.Set("grant_type", "password")
-	form.Set("username", a.Username)
-	form.Set("password", a.Password)
-	form.Set("client_id", a.ClientID)
-	form.Set("client_secret", a.ClientSecret)
+	form.Set("username", c.auth.Username)
+	form.Set("password", c.auth.Password)
+	form.Set("client_id", c.auth.ClientID)
+	form.Set("client_secret", c.auth.ClientSecret)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, authURL, strings.NewReader(form.Encode()))
 	if err != nil {
@@ -63,12 +64,12 @@ func (c *Client) Authenticate(ctx context.Context, a *AuthForm) error {
 	return nil
 }
 
-func (c *Client) RefreshToken(ctx context.Context, a *AuthForm) error {
+func (c *Client) RefreshToken(ctx context.Context) error {
 	form := url.Values{}
 	form.Set("grant_type", "refresh_token")
 	form.Set("refresh_token", c.token.RefreshToken)
-	form.Set("client_id", a.ClientID)
-	form.Set("client_secret", a.ClientSecret)
+	form.Set("client_id", c.auth.ClientID)
+	form.Set("client_secret", c.auth.ClientSecret)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, authURL, strings.NewReader(form.Encode()))
 	if err != nil {
@@ -101,9 +102,9 @@ func (c *Client) RefreshToken(ctx context.Context, a *AuthForm) error {
 	return nil
 }
 
-func (c *Client) EnsureToken(ctx context.Context, a *AuthForm) error {
+func (c *Client) EnsureToken(ctx context.Context) error {
 	if time.Until(c.token.Expiry) < time.Minute {
-		err := c.RefreshToken(ctx, a)
+		err := c.RefreshToken(ctx)
 		if err != nil {
 			return fmt.Errorf("refresh token: %w", err)
 		}

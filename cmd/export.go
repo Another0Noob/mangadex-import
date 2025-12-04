@@ -43,21 +43,21 @@ func init() {
 }
 
 func runExport(configPath string) error {
-	auth, err := mangadexapi.LoadAuth(configPath)
+	client := mangadexapi.NewClient()
+	ctx := context.Background()
+
+	err := client.LoadAuth(configPath)
 	if err != nil {
 		return fmt.Errorf("load auth: %w", err)
 	}
 
-	client := mangadexapi.NewClient()
-	ctx := context.Background()
-
-	if err := client.Authenticate(ctx, &auth); err != nil {
+	if err := client.Authenticate(ctx); err != nil {
 		return fmt.Errorf("authenticate: %w", err)
 	}
 
 	fmt.Println("--- Requesting Mangadex Manga ---")
 
-	followedManga, err := client.GetAllFollowed(ctx, &auth)
+	followedManga, err := client.GetAllFollowed(ctx)
 	if err != nil {
 		return fmt.Errorf("request: %w", err)
 	}

@@ -61,21 +61,20 @@ func runFollow(configPath, inputPath string) error {
 
 	fmt.Printf("Got %d manga.\n", len(inputManga))
 
-	auth, err := mangadexapi.LoadAuth(configPath)
-	if err != nil {
-		return fmt.Errorf("load auth: %w", err)
-	}
-
 	client := mangadexapi.NewClient()
 	ctx := context.Background()
 
-	if err := client.Authenticate(ctx, &auth); err != nil {
+	if err := client.LoadAuth(configPath); err != nil {
+		return fmt.Errorf("load auth: %w", err)
+	}
+
+	if err := client.Authenticate(ctx); err != nil {
 		return fmt.Errorf("authenticate: %w", err)
 	}
 
 	fmt.Println("--- Requesting Mangadex Manga ---")
 
-	followedManga, err := client.GetAllFollowed(ctx, &auth)
+	followedManga, err := client.GetAllFollowed(ctx)
 	if err != nil {
 		return fmt.Errorf("request: %w", err)
 	}
@@ -96,7 +95,7 @@ func runFollow(configPath, inputPath string) error {
 	// Search for unmatched manga
 	fmt.Println("--- Searching for unmatched manga ---")
 
-	newMatches, stillUnmatched, err := match.SearchAndFollow(ctx, client, &auth, matchResult.Unmatched.Import, true)
+	newMatches, stillUnmatched, err := match.SearchAndFollow(ctx, client, matchResult.Unmatched.Import, true)
 	if err != nil {
 		return fmt.Errorf("Search: %w", err)
 	}
