@@ -483,7 +483,7 @@ func abs(x int) int {
 	return x
 }
 
-func SearchAndMatch(ctx context.Context, client *mangadexapi.Client, importEntry ImportEntry, limit int) (*MatchInfo, string, error) {
+func SearchAndMatch(ctx context.Context, client *mangadexapi.Client, a *mangadexapi.AuthForm, importEntry ImportEntry, limit int) (*MatchInfo, string, error) {
 	if importEntry.Normalized == "" {
 		return nil, "", errors.New("No title")
 	}
@@ -493,7 +493,7 @@ func SearchAndMatch(ctx context.Context, client *mangadexapi.Client, importEntry
 		Limit: limit,
 		Order: mangadexapi.OrderParams{"relevance": "desc"},
 	}
-	mangas, err := client.GetMangaList(ctx, params)
+	mangas, err := client.GetMangaList(ctx, a, params)
 	if err != nil {
 		return nil, "", err
 	}
@@ -611,4 +611,31 @@ func fuzzyMatchSingle(input string, mdList []mangadexapi.Manga) (*mangadexapi.Ma
 	idx := idxList[0]
 
 	return &mdList[idx], nil
+}
+
+func SearchAndFollow(ctx context.Context, client *mangadexapi.Client, a *mangadexapi.AuthForm, importEntries []ImportEntry, follow bool) ([]string, []ImportEntry, error) {
+	var newMatches []string
+	stillUnmatched := []ImportEntry{}
+	for _, importEntry := range importEntries {
+
+		matchInfo, id, err := SearchAndMatch(ctx, client, a, importEntry, 10)
+		if err != nil {
+			stillUnmatched = append(stillUnmatched, importEntry)
+			continue
+		}
+
+		if matchInfo != nil {
+			newMatches = append(newMatches, importEntry.Original)
+			if follow {
+				if err := client.FollowManga(ctx, a, id); err != nil {
+					return nil, nil, err
+				}
+			}
+
+		} else {
+			stillUnmatched = append(stillUnmatched, importEntry)
+		}
+	}
+
+	return newMatches, stillUnmatched, nil
 }

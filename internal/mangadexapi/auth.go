@@ -9,11 +9,27 @@ import (
 	"net/url"
 	"strings"
 	"time"
+
+	"gopkg.in/ini.v1"
 )
 
 const authURL = "https://auth.mangadex.org/realms/mangadex/protocol/openid-connect/token"
 
-func (c *Client) Authenticate(ctx context.Context, a AuthForm) error {
+func LoadAuth(path string) (AuthForm, error) {
+	var m AuthForm
+	cfg, err := ini.Load(path)
+	if err != nil {
+		return m, fmt.Errorf("load auth config %s: %w", path, err)
+	}
+	sec := cfg.Section("mangadex")
+	m.Username = sec.Key("username").String()
+	m.Password = sec.Key("password").String()
+	m.ClientID = sec.Key("client_id").String()
+	m.ClientSecret = sec.Key("client_secret").String()
+	return m, nil
+}
+
+func (c *Client) Authenticate(ctx context.Context, a *AuthForm) error {
 	form := url.Values{}
 	form.Set("grant_type", "password")
 	form.Set("username", a.Username)
@@ -47,7 +63,7 @@ func (c *Client) Authenticate(ctx context.Context, a AuthForm) error {
 	return nil
 }
 
-func (c *Client) RefreshToken(ctx context.Context, a AuthForm) error {
+func (c *Client) RefreshToken(ctx context.Context, a *AuthForm) error {
 	form := url.Values{}
 	form.Set("grant_type", "refresh_token")
 	form.Set("refresh_token", c.token.RefreshToken)
@@ -85,7 +101,7 @@ func (c *Client) RefreshToken(ctx context.Context, a AuthForm) error {
 	return nil
 }
 
-func (c *Client) EnsureToken(ctx context.Context, a AuthForm) error {
+func (c *Client) EnsureToken(ctx context.Context, a *AuthForm) error {
 	if time.Until(c.token.Expiry) < time.Minute {
 		err := c.RefreshToken(ctx, a)
 		if err != nil {
