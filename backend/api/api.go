@@ -1,127 +1,75 @@
-package main
+package api
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
-	"path/filepath"
 	"sync"
 	"time"
-
-	"github.com/Another0Noob/mangadex-import/internal/mangadexapi"
-	"github.com/Another0Noob/mangadex-import/internal/mangaparser"
-	"github.com/Another0Noob/mangadex-import/internal/match"
-	"github.com/google/uuid"
 )
 
-// ProgressUpdate represents a status update during processing
-type ProgressUpdate struct {
-	Type    string `json:"type"` // "info", "progress", "error", "complete"
-	Message string `json:"message"`
-	Data    any    `json:"data,omitempty"`
+const size = 100
+
+// Job is a unit of work that can be executed by the worker.
+type Job interface {
+	// Run executes the job. It receives the API and the session for progress/cancellation.
+	Run(api *MangaAPI, session *UserSession)
 }
 
-// FollowRequest holds the parameters for a follow operation
-type FollowRequest struct {
-	UserID        string
-	Username      string // MangaDex username
-	Password      string // MangaDex password
-	ClientID      string // MangaDex OAuth client ID
-	ClientSecret  string // MangaDex OAuth client secret
-	InputFile     []byte // Manga list file content
-	InputFilename string // original uploaded filename
-}
-
-// UserSession manages resources for a single user's operation
-type UserSession struct {
-	ID        string
-	Client    *mangadexapi.Client
-	Progress  chan ProgressUpdate
-	Ctx       context.Context
-	CancelFn  context.CancelFunc
-	CreatedAt time.Time
-}
-
-// SessionManager handles concurrent user sessions
-type SessionManager struct {
-	mu       sync.RWMutex
-	sessions map[string]*UserSession
-}
-
-func NewSessionManager() *SessionManager {
-	return &SessionManager{
-		sessions: make(map[string]*UserSession),
-	}
-}
-
-func (sm *SessionManager) CreateSession(userID string) (*UserSession, error) {
-	sm.mu.Lock()
-	defer sm.mu.Unlock()
-
-	// Check if user already has an active session
-	if existing, ok := sm.sessions[userID]; ok {
-		// Cancel the old session
-		existing.CancelFn()
-		close(existing.Progress)
-	}
-
-	ctx, cancel := context.WithCancel(context.Background())
-	session := &UserSession{
-		ID:        uuid.New().String(),
-		Client:    mangadexapi.NewClient(),
-		Progress:  make(chan ProgressUpdate, 100),
-		Ctx:       ctx,
-		CancelFn:  cancel,
-		CreatedAt: time.Now(),
-	}
-
-	sm.sessions[userID] = session
-	return session, nil
-}
-
-func (sm *SessionManager) GetSession(userID string) (*UserSession, bool) {
-	sm.mu.RLock()
-	defer sm.mu.RUnlock()
-	session, ok := sm.sessions[userID]
-	return session, ok
-}
-
-func (sm *SessionManager) RemoveSession(userID string) {
-	sm.mu.Lock()
-	defer sm.mu.Unlock()
-	if session, ok := sm.sessions[userID]; ok {
-		session.CancelFn()
-		close(session.Progress)
-		delete(sm.sessions, userID)
-	}
-}
-
-// CleanupStale removes sessions older than duration
-func (sm *SessionManager) CleanupStale(maxAge time.Duration) {
-	sm.mu.Lock()
-	defer sm.mu.Unlock()
-
-	now := time.Now()
-	for userID, session := range sm.sessions {
-		if now.Sub(session.CreatedAt) > maxAge {
-			session.CancelFn()
-			close(session.Progress)
-			delete(sm.sessions, userID)
-		}
-	}
+// queuedJob is an item in the processing queue
+type queuedJob struct {
+	session *UserSession
+	job     Job
 }
 
 // API Handler
 type MangaAPI struct {
 	sessions *SessionManager
+
+	// queue so that only one follow job runs at a time
+	jobQueue  chan queuedJob
+	queueSize int
+
+	// queueOrder tracks session IDs in enqueue order (protected by queueMu)
+	queueMu    sync.Mutex
+	queueOrder []string
 }
 
 func NewMangaAPI() *MangaAPI {
 	api := &MangaAPI{
-		sessions: NewSessionManager(),
+		sessions:   NewSessionManager(),
+		queueSize:  size,                       // tune as you like
+		jobQueue:   make(chan queuedJob, size), // buffered queue
+		queueOrder: make([]string, 0, size),
 	}
+
+	// Start single worker to process jobs sequentially
+	go func() {
+		for job := range api.jobQueue {
+			// Remove job from queueOrder (if present) before processing.
+			api.queueMu.Lock()
+			if len(api.queueOrder) > 0 && api.queueOrder[0] == job.session.ID {
+				// common fast path: pop front
+				api.queueOrder = api.queueOrder[1:]
+			} else {
+				// fallback: find and remove by session ID
+				for i, id := range api.queueOrder {
+					if id == job.session.ID {
+						api.queueOrder = append(api.queueOrder[:i], api.queueOrder[i+1:]...)
+						break
+					}
+				}
+			}
+			api.queueMu.Unlock()
+
+			// If the session was already removed/cancelled, skip
+			if job.session == nil || job.session.Ctx == nil {
+				continue
+			}
+			// Dispatch the job
+			job.job.Run(api, job.session)
+		}
+	}()
 
 	// Cleanup stale sessions every hour
 	go func() {
@@ -133,82 +81,6 @@ func NewMangaAPI() *MangaAPI {
 	}()
 
 	return api
-}
-
-// HandleFollow starts the follow operation for a user
-func (api *MangaAPI) HandleFollow(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	// Parse multipart form (max 10MB)
-	if err := r.ParseMultipartForm(10 << 20); err != nil {
-		http.Error(w, fmt.Sprintf("Failed to parse form: %v", err), http.StatusBadRequest)
-		return
-	}
-
-	userID := r.FormValue("user_id")
-	if userID == "" {
-		http.Error(w, "user_id required", http.StatusBadRequest)
-		return
-	}
-
-	// Get MangaDex credentials from form
-	username := r.FormValue("username")
-	password := r.FormValue("password")
-	clientID := r.FormValue("client_id")
-	clientSecret := r.FormValue("client_secret")
-
-	if username == "" || password == "" || clientID == "" || clientSecret == "" {
-		http.Error(w, "All MangaDex credentials required", http.StatusBadRequest)
-		return
-	}
-
-	inputFile, fileHeader, err := r.FormFile("manga_list")
-	if err != nil {
-		http.Error(w, "manga_list file required", http.StatusBadRequest)
-		return
-	}
-	defer inputFile.Close()
-	inputData, err := io.ReadAll(inputFile)
-	if err != nil {
-		http.Error(w, "Failed to read manga list file", http.StatusInternalServerError)
-		return
-	}
-
-	// Sanitize uploaded filename (strip any path components)
-	var filename string
-	if fileHeader != nil && fileHeader.Filename != "" {
-		filename = filepath.Base(fileHeader.Filename)
-	}
-
-	req := FollowRequest{
-		UserID:        userID,
-		Username:      username,
-		Password:      password,
-		ClientID:      clientID,
-		ClientSecret:  clientSecret,
-		InputFile:     inputData,
-		InputFilename: filename,
-	}
-
-	// Create a new session for this user
-	session, err := api.sessions.CreateSession(req.UserID)
-	if err != nil {
-		http.Error(w, fmt.Sprintf("Failed to create session: %v", err), http.StatusInternalServerError)
-		return
-	}
-
-	// Start the follow operation in a goroutine
-	go api.runFollowAsync(session, req)
-
-	// Return session ID for tracking
-	json.NewEncoder(w).Encode(map[string]string{
-		"session_id": session.ID,
-		"user_id":    req.UserID,
-		"status":     "started",
-	})
 }
 
 // HandleProgress streams progress updates via SSE
@@ -248,89 +120,16 @@ func (api *MangaAPI) HandleProgress(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// runFollowAsync executes the follow operation with progress updates
-func (api *MangaAPI) runFollowAsync(session *UserSession, req FollowRequest) {
-	defer api.sessions.RemoveSession(req.UserID)
-
-	// Use the session's cancellable context with a timeout
-	ctx, cancel := context.WithTimeout(session.Ctx, 30*time.Minute)
-	defer cancel()
-
-	// Helper to send progress
-	sendProgress := func(typ, msg string, data any) {
-		select {
-		case session.Progress <- ProgressUpdate{Type: typ, Message: msg, Data: data}:
-		default:
-			// Channel full, skip this update
+// removeQueuedUser removes a user from the queueOrder slice (if present).
+func (api *MangaAPI) removeQueuedSession(sessionID string) {
+	api.queueMu.Lock()
+	defer api.queueMu.Unlock()
+	for i, id := range api.queueOrder {
+		if id == sessionID {
+			api.queueOrder = append(api.queueOrder[:i], api.queueOrder[i+1:]...)
+			return
 		}
 	}
-
-	// Check if already cancelled
-	if ctx.Err() != nil {
-		sendProgress("error", "Operation cancelled", nil)
-		return
-	}
-
-	// Parse manga list directly from memory
-	sendProgress("info", "Reading manga list...", nil)
-	inputManga, err := mangaparser.ParseFromBytes(req.InputFile, req.InputFilename)
-	if err != nil {
-		sendProgress("error", fmt.Sprintf("Failed to parse file: %v", err), nil)
-		return
-	}
-	sendProgress("info", fmt.Sprintf("Got %d manga", len(inputManga)), map[string]int{"count": len(inputManga)})
-
-	sendProgress("info", "Authenticating with MangaDex...", nil)
-	authForm := mangadexapi.AuthForm{
-		Username:     req.Username,
-		Password:     req.Password,
-		ClientID:     req.ClientID,
-		ClientSecret: req.ClientSecret,
-	}
-	if err := session.Client.LoadAuthForm(authForm); err != nil {
-		sendProgress("error", fmt.Sprintf("Failed to load auth: %v", err), nil)
-		return
-	}
-	if err := session.Client.Authenticate(ctx); err != nil {
-		sendProgress("error", fmt.Sprintf("Authentication failed: %v", err), nil)
-		return
-	}
-
-	sendProgress("info", "Fetching followed manga from MangaDex...", nil)
-	followedManga, err := session.Client.GetAllFollowed(ctx)
-	if err != nil {
-		sendProgress("error", fmt.Sprintf("Failed to get followed manga: %v", err), nil)
-		return
-	}
-	sendProgress("info", fmt.Sprintf("Got %d MangaDex manga", len(followedManga)), map[string]int{"count": len(followedManga)})
-
-	sendProgress("info", "Matching manga...", nil)
-	matchResult := match.MatchDirect(followedManga, inputManga)
-	countDirect := len(matchResult.Matches)
-	sendProgress("progress", fmt.Sprintf("Matched %d manga directly", countDirect), map[string]int{"direct_matches": countDirect})
-
-	matchResult = match.FuzzyMatch(matchResult)
-	sendProgress("progress", fmt.Sprintf("Fuzzy matched %d manga", len(matchResult.Matches)-countDirect),
-		map[string]int{"fuzzy_matches": len(matchResult.Matches) - countDirect})
-
-	sendProgress("info", "Searching for unmatched manga...", nil)
-	newMatches, stillUnmatched, err := match.SearchAndFollow(ctx, session.Client, matchResult.Unmatched.Import, true)
-	if err != nil {
-		// Check if error is due to cancellation
-		if ctx.Err() == context.Canceled {
-			sendProgress("error", "Operation cancelled by user", nil)
-		} else {
-			sendProgress("error", fmt.Sprintf("Search failed: %v", err), nil)
-		}
-		return
-	}
-
-	sendProgress("complete", "Operation completed", map[string]any{
-		"direct_matches":  countDirect,
-		"fuzzy_matches":   len(matchResult.Matches) - countDirect,
-		"new_matches":     len(newMatches),
-		"still_unmatched": len(stillUnmatched),
-	})
 }
 
 // HandleCancel allows users to cancel their operation
@@ -346,8 +145,48 @@ func (api *MangaAPI) HandleCancel(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// If there's a session, remove its queued entry (tracked by session.ID)
+	if session, ok := api.sessions.GetSession(userID); ok {
+		api.removeQueuedSession(session.ID)
+	}
+
 	api.sessions.RemoveSession(userID)
 	json.NewEncoder(w).Encode(map[string]string{"status": "cancelled"})
+}
+
+// HandleQueue returns queue information for a given user.
+// GET /api/queue?user_id=...
+// Response: {"position": <int>, "queued": <int>}
+func (api *MangaAPI) HandleQueue(w http.ResponseWriter, r *http.Request) {
+	// Prefer explicit session_id
+	sessionID := r.URL.Query().Get("session_id")
+	userID := r.URL.Query().Get("user_id")
+
+	// If session_id is not provided but user_id is, try to find session and use its ID
+	if sessionID == "" && userID != "" {
+		if session, ok := api.sessions.GetSession(userID); ok {
+			sessionID = session.ID
+		}
+	}
+
+	api.queueMu.Lock()
+	defer api.queueMu.Unlock()
+
+	total := len(api.queueOrder)
+	position := 0
+	if sessionID != "" {
+		for i, id := range api.queueOrder {
+			if id == sessionID {
+				position = i + 1 // 1-based position
+				break
+			}
+		}
+	}
+
+	json.NewEncoder(w).Encode(map[string]int{
+		"position": position,
+		"queued":   total,
+	})
 }
 
 func main() {
@@ -356,6 +195,7 @@ func main() {
 	http.HandleFunc("/api/follow", api.HandleFollow)
 	http.HandleFunc("/api/progress", api.HandleProgress)
 	http.HandleFunc("/api/cancel", api.HandleCancel)
+	http.HandleFunc("/api/queue", api.HandleQueue)
 
 	fmt.Println("Server starting on :8080")
 	http.ListenAndServe(":8080", nil)

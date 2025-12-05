@@ -98,7 +98,7 @@ type MangaAttributes struct {
 	AltTitles []map[string]string `json:"altTitles"`
 	//	Description                    map[string]string      `json:"description"`
 	//	IsLocked                       bool                   `json:"isLocked"`
-	Links map[string]string `json:"links"`
+	// Links map[string]string `json:"links"`
 	//	OriginalLanguage               string                 `json:"originalLanguage"`
 	//	LastVolume                     string                 `json:"lastVolume"`
 	//	LastChapter                    string                 `json:"lastChapter"`
