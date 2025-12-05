@@ -7,5 +7,5 @@ todo
 - [ ] add logging
 - [ ] add webserver
 - [ ] solve ratelimiter
-- [ ] add web ui
 - [ ] queue
+- [ ] add web ui
