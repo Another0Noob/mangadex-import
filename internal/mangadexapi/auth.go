@@ -30,8 +30,8 @@ func (c *Client) LoadAuth(path string) error {
 	return nil
 }
 
-// LoadAuthFrom loads authentication directly from an AuthForm struct
-func (c *Client) LoadAuthFrom(auth AuthForm) error {
+// LoadAuthForm loads authentication directly from an AuthForm struct
+func (c *Client) LoadAuthForm(auth AuthForm) error {
 	// Validate required fields
 	if auth.Username == "" {
 		return fmt.Errorf("username is required")
@@ -63,6 +63,10 @@ func (c *Client) Authenticate(ctx context.Context) error {
 		return err
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	if err := generalRateLimit.Wait(ctx); err != nil {
+		return fmt.Errorf("rate limit error: %w", err)
+	}
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -96,6 +100,10 @@ func (c *Client) RefreshToken(ctx context.Context) error {
 		return err
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	if err := generalRateLimit.Wait(ctx); err != nil {
+		return fmt.Errorf("rate limit error: %w", err)
+	}
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {

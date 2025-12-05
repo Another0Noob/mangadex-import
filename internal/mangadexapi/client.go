@@ -20,25 +20,22 @@ const (
 	baseURL   = "https://api.mangadex.org"
 	userAgent = "MangaDex-Import/0.1 (https://github.com/Another0Noob/mangadex-import)"
 )
-const (
-	rateLimitRequests = 5
-	rateLimitDuration = time.Second
-)
+
+var generalRateLimit = rate.NewLimiter(rate.Every(time.Second/time.Duration(5)), 5)
 
 // NewClient creates a new MangaDex API client.
 func NewClient() *Client {
 	return &Client{
-		httpClient:  &http.Client{},
-		baseURL:     baseURL,
-		userAgent:   userAgent,
-		rateLimiter: rate.NewLimiter(rate.Every(rateLimitDuration/time.Duration(rateLimitRequests)), rateLimitRequests),
+		httpClient: &http.Client{},
+		baseURL:    baseURL,
+		userAgent:  userAgent,
 	}
 }
 
 // doRequest performs an HTTP request to the MangaDex API (raw, no JSON decoding).
-func (c *Client) doRequest(ctx context.Context, method, endpoint string, params url.Values, body interface{}) (*http.Response, error) {
+func (c *Client) doRequest(ctx context.Context, method, endpoint string, params url.Values, body any) (*http.Response, error) {
 	// Rate limiting
-	if err := c.rateLimiter.Wait(ctx); err != nil {
+	if err := generalRateLimit.Wait(ctx); err != nil {
 		return nil, fmt.Errorf("rate limit error: %w", err)
 	}
 
@@ -286,12 +283,10 @@ func addOrderParams(v url.Values, orderVal reflect.Value) {
 }
 
 func isZeroValue(v reflect.Value) bool {
-	// For slices / maps / arrays / ptr / interface
 	switch v.Kind() {
 	case reflect.Slice, reflect.Map, reflect.Array:
 		return v.Len() == 0
 	}
-	// Use IsZero (Go 1.18+)
 	return v.IsZero()
 }
 

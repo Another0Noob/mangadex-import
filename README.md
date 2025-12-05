@@ -6,4 +6,6 @@ todo
 - [ ] add progress bar 
 - [ ] add logging
 - [ ] add webserver
+- [ ] solve ratelimiter
 - [ ] add web ui
+- [ ] queue

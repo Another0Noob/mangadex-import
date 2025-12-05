@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -24,12 +25,13 @@ type ProgressUpdate struct {
 
 // FollowRequest holds the parameters for a follow operation
 type FollowRequest struct {
-	UserID       string
-	Username     string // MangaDex username
-	Password     string // MangaDex password
-	ClientID     string // MangaDex OAuth client ID
-	ClientSecret string // MangaDex OAuth client secret
-	InputFile    []byte // Manga list file content
+	UserID        string
+	Username      string // MangaDex username
+	Password      string // MangaDex password
+	ClientID      string // MangaDex OAuth client ID
+	ClientSecret  string // MangaDex OAuth client secret
+	InputFile     []byte // Manga list file content
+	InputFilename string // original uploaded filename
 }
 
 // UserSession manages resources for a single user's operation
@@ -163,8 +165,7 @@ func (api *MangaAPI) HandleFollow(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Read manga list file
-	inputFile, _, err := r.FormFile("manga_list")
+	inputFile, fileHeader, err := r.FormFile("manga_list")
 	if err != nil {
 		http.Error(w, "manga_list file required", http.StatusBadRequest)
 		return
@@ -176,13 +177,20 @@ func (api *MangaAPI) HandleFollow(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Sanitize uploaded filename (strip any path components)
+	var filename string
+	if fileHeader != nil && fileHeader.Filename != "" {
+		filename = filepath.Base(fileHeader.Filename)
+	}
+
 	req := FollowRequest{
-		UserID:       userID,
-		Username:     username,
-		Password:     password,
-		ClientID:     clientID,
-		ClientSecret: clientSecret,
-		InputFile:    inputData,
+		UserID:        userID,
+		Username:      username,
+		Password:      password,
+		ClientID:      clientID,
+		ClientSecret:  clientSecret,
+		InputFile:     inputData,
+		InputFilename: filename,
 	}
 
 	// Create a new session for this user
@@ -265,7 +273,7 @@ func (api *MangaAPI) runFollowAsync(session *UserSession, req FollowRequest) {
 
 	// Parse manga list directly from memory
 	sendProgress("info", "Reading manga list...", nil)
-	inputManga, err := mangaparser.ParseFromBytes(req.InputFile, "manga-list.json")
+	inputManga, err := mangaparser.ParseFromBytes(req.InputFile, req.InputFilename)
 	if err != nil {
 		sendProgress("error", fmt.Sprintf("Failed to parse file: %v", err), nil)
 		return
@@ -279,7 +287,7 @@ func (api *MangaAPI) runFollowAsync(session *UserSession, req FollowRequest) {
 		ClientID:     req.ClientID,
 		ClientSecret: req.ClientSecret,
 	}
-	if err := session.Client.LoadAuthFrom(authForm); err != nil {
+	if err := session.Client.LoadAuthForm(authForm); err != nil {
 		sendProgress("error", fmt.Sprintf("Failed to load auth: %v", err), nil)
 		return
 	}

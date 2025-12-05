@@ -4,8 +4,6 @@ import (
 	"encoding/json"
 	"net/http"
 	"time"
-
-	"golang.org/x/time/rate"
 )
 
 type AuthForm struct {
@@ -24,10 +22,9 @@ type Token struct {
 
 // Client is the MangaDex API client.
 type Client struct {
-	httpClient  *http.Client
-	baseURL     string
-	userAgent   string
-	rateLimiter *rate.Limiter
+	httpClient *http.Client
+	baseURL    string
+	userAgent  string
 
 	auth  AuthForm
 	token *Token
