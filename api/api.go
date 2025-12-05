@@ -189,7 +189,7 @@ func (api *MangaAPI) HandleQueue(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func main() {
+func RunApi() {
 	api := NewMangaAPI()
 
 	http.HandleFunc("/api/follow", api.HandleFollow)
