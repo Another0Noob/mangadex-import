@@ -41,8 +41,10 @@ func (api *MangaAPI) HandleFollow(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Parse multipart form (max 10MB)
-	if err := r.ParseMultipartForm(10 << 20); err != nil {
+	r.Body = http.MaxBytesReader(w, r.Body, 2<<20)
+
+	// Parse multipart form (max 2MB)
+	if err := r.ParseMultipartForm(2 << 20); err != nil {
 		http.Error(w, fmt.Sprintf("Failed to parse form: %v", err), http.StatusBadRequest)
 		return
 	}
