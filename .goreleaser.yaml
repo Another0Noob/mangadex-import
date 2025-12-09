@@ -8,12 +8,11 @@
 
 version: 2
 
+project_name: mangadex-import
+
 before:
   hooks:
-    # You may remove this if you don't use go modules.
     - go mod tidy
-    # you may remove this if you don't need go generate
-    - go generate ./...
 
 builds:
   - env:
@@ -22,21 +21,31 @@ builds:
       - linux
       - windows
       - darwin
+    goarch:
+      - amd64
+      - arm64
+    gcflags:
+      - all=-trimpath -modcacherw
+      - buildmode=pie
+      - mod=readonly
+  - main: .
+    id: "cli"
+    binary: "mdimport"
+  - main: "./web"
+    id: "web"
+    binary: "mdimport"
 
 archives:
   - formats: [tar.gz]
     # this name template makes the OS and Arch compatible with the results of `uname`.
-    name_template: >-
-      {{ .ProjectName }}_
-      {{- title .Os }}_
-      {{- if eq .Arch "amd64" }}x86_64
-      {{- else if eq .Arch "386" }}i386
-      {{- else }}{{ .Arch }}{{ end }}
-      {{- if .Arm }}v{{ .Arm }}{{ end }}
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}_{{ .BuildID }}"
     # use zip for windows archives
     format_overrides:
       - goos: windows
         formats: [zip]
+
+source:
+  enabled: true
 
 changelog:
   sort: asc
@@ -45,9 +54,19 @@ changelog:
       - "^docs:"
       - "^test:"
 
+signs:
+  - artifacts: checksum
+    cmd: gpg2
+    args:
+      - "--batch"
+      - "-u"
+      - "{{ .Env.GPG_FINGERPRINT }}"
+      - "--output"
+      - "${signature}"
+      - "--detach-sign"
+      - "${artifact}"
+
 release:
-  footer: >-
-
-    ---
-
-    Released by [GoReleaser](https://github.com/goreleaser/goreleaser).
+  github:
+    owner: Another0Noob
+    name: mangadex-import

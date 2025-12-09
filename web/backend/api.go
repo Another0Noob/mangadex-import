@@ -1,4 +1,4 @@
-package api
+package backend
 
 import (
 	"encoding/json"
@@ -177,20 +177,4 @@ func (api *MangaAPI) HandleCancel(w http.ResponseWriter, r *http.Request) {
 	}
 	api.sessions.RemoveSession(userID)
 	json.NewEncoder(w).Encode(map[string]string{"status": "cancelled"})
-}
-
-func RunApi() {
-	api := NewMangaAPI()
-
-	http.HandleFunc("/api/follow", api.HandleFollow)
-	http.HandleFunc("/api/progress", api.HandleProgress)
-	http.HandleFunc("/api/cancel", api.HandleCancel)
-	http.HandleFunc("/api/queue", api.HandleQueue)
-	http.HandleFunc("/api/queue/subscribe", api.HandleQueueSubscribe)
-
-	fs := http.FileServer(http.Dir("./web"))
-	http.Handle("/", fs)
-
-	fmt.Println("Server starting on :8080")
-	http.ListenAndServe(":8080", nil)
 }
