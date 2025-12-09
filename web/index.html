@@ -1,0 +1,299 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width,initial-scale=1" />
+        <title>MangaDex Import</title>
+        <link rel="stylesheet" href="style.css" />
+        <style>
+            /* Minimal styles for the tabs and content so it works out-of-the-box */
+            .mini-tab {
+                list-style: none;
+                padding: 0;
+                margin: 0 0 1rem 0;
+                display: flex;
+                gap: 0.5rem;
+            }
+            .mini-tab .nav-item {
+                margin: 0;
+            }
+            .tab-btn {
+                padding: 0.4rem 0.8rem;
+                cursor: pointer;
+                border: 1px solid #ccc;
+                background: #f6f6f6;
+                border-radius: 4px;
+            }
+            .tab-btn.active {
+                background: #fff;
+                border-bottom-color: #fff;
+                font-weight: 600;
+            }
+            .setting-content-w {
+                border: 1px solid #ddd;
+                padding: 1rem;
+                border-radius: 6px;
+                background: #fff;
+            }
+            .tab-content {
+                display: none;
+            }
+            .tab-content.active {
+                display: block;
+            }
+            .form-row {
+                display: flex;
+                gap: 1rem;
+                flex-wrap: wrap;
+            }
+            label {
+                display: block;
+                margin-bottom: 0.5rem;
+            }
+            .buttons {
+                margin-top: 0.5rem;
+                display: flex;
+                gap: 0.5rem;
+            }
+        </style>
+    </head>
+    <body>
+        <main>
+            <h1>MangaDex Import</h1>
+
+            <div class="container">
+                <ul class="nav mini-tab" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button
+                            class="tab-btn nav-link"
+                            type="button"
+                            data-target="tab-import"
+                        >
+                            Import
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button
+                            class="tab-btn nav-link active"
+                            type="button"
+                            data-target="tab-export"
+                        >
+                            Export
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button
+                            class="tab-btn nav-link active"
+                            type="button"
+                            data-target="tab-progress"
+                        >
+                            Progress
+                        </button>
+                    </li>
+                </ul>
+            </div>
+
+            <div class="container setting-content-w">
+                <div id="tab-import" class="tab-content">
+                    <h2>Import</h2>
+                    <form
+                        id="importForm"
+                        onsubmit="
+                            event.preventDefault();
+                            startImport();
+                        "
+                    >
+                        <div class="form-row">
+                            <label>
+                                MangaDex username:
+                                <input
+                                    id="username"
+                                    name="username"
+                                    placeholder="mangadex username"
+                                />
+                            </label>
+                            <label>
+                                MangaDex password:
+                                <input
+                                    id="password"
+                                    name="password"
+                                    type="password"
+                                    placeholder="password"
+                                />
+                            </label>
+                            <label>
+                                MangaDex Client ID:
+                                <input
+                                    id="clientId"
+                                    name="client_id"
+                                    placeholder="client id"
+                                />
+                            </label>
+                            <label>
+                                MangaDex Client Secret:
+                                <input
+                                    id="clientSecret"
+                                    name="client_secret"
+                                    type="password"
+                                    placeholder="client secret"
+                                />
+                            </label>
+                            <label>
+                                Upload CSV or XML file:
+                                <input
+                                    id="inputFile"
+                                    name="manga_list"
+                                    type="file"
+                                    accept=".csv, .xml"
+                                />
+                            </label>
+                        </div>
+
+                        <div class="buttons">
+                            <button id="startBtn" type="submit">
+                                Start Import
+                            </button>
+                            <button id="cancelBtn" type="button" disabled>
+                                Cancel
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <div id="tab-export" class="tab-content active">
+                    <h2>Export</h2>
+                    <form
+                        id="importForm"
+                        onsubmit="
+                            event.preventDefault();
+                            startExport();
+                        "
+                    >
+                        <div class="form-row">
+                            <label>
+                                MangaDex username:
+                                <input
+                                    id="username"
+                                    name="username"
+                                    placeholder="mangadex username"
+                                />
+                            </label>
+                            <label>
+                                MangaDex password:
+                                <input
+                                    id="password"
+                                    name="password"
+                                    type="password"
+                                    placeholder="password"
+                                />
+                            </label>
+                            <label>
+                                MangaDex Client ID:
+                                <input
+                                    id="clientId"
+                                    name="client_id"
+                                    placeholder="client id"
+                                />
+                            </label>
+                            <label>
+                                MangaDex Client Secret:
+                                <input
+                                    id="clientSecret"
+                                    name="client_secret"
+                                    type="password"
+                                    placeholder="client secret"
+                                />
+                            </label>
+                        </div>
+
+                        <div class="buttons">
+                            <button id="startBtn" type="submit">
+                                Start Export
+                            </button>
+                            <button id="cancelBtn" type="button" disabled>
+                                Cancel
+                            </button>
+                        </div>
+                    </form>
+                </div>
+                <div id="tab-progress" class="tab-content active">
+                    <h2>Progress</h2>
+                    <form
+                        id="progressForm"
+                        onsubmit="
+                            event.preventDefault();
+                            checkProgress();
+                        "
+                    >
+                        <div class="form-row">
+                            <label>
+                                MangaDex Client ID:
+                                <input
+                                    id="clientId"
+                                    name="client_id"
+                                    placeholder="client id"
+                                />
+                            </label>
+                        </div>
+
+                        <div class="buttons">
+                            <button id="startBtn" type="submit">
+                                Check Progress
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <section id="queueInfo" hidden>
+                <p>
+                    Queue position: <span id="queuePos">-</span> /
+                    <span id="queueTotal">-</span>
+                </p>
+            </section>
+
+            <section id="progressArea">
+                <h2>Progress</h2>
+                <ul id="progressList"></ul>
+            </section>
+        </main>
+
+        <script>
+            // Simple tab switching logic
+            (function () {
+                const buttons = document.querySelectorAll(".tab-btn");
+                function activate(targetId, btn) {
+                    document
+                        .querySelectorAll(".tab-content")
+                        .forEach((el) => el.classList.remove("active"));
+                    const target = document.getElementById(targetId);
+                    if (target) target.classList.add("active");
+
+                    buttons.forEach((b) => b.classList.remove("active"));
+                    if (btn) btn.classList.add("active");
+                }
+
+                buttons.forEach((btn) => {
+                    const tgt = btn.getAttribute("data-target");
+                    btn.addEventListener("click", () => activate(tgt, btn));
+                });
+
+                // ensure there is always one active tab on load
+                if (!document.querySelector(".tab-btn.active")) {
+                    const first = buttons[0];
+                    if (first) first.classList.add("active");
+                }
+                const activeBtn = document.querySelector(".tab-btn.active");
+                if (activeBtn) {
+                    const tgt = activeBtn.getAttribute("data-target");
+                    activate(tgt, activeBtn);
+                } else if (buttons[0]) {
+                    const tgt = buttons[0].getAttribute("data-target");
+                    activate(tgt, buttons[0]);
+                }
+            })();
+        </script>
+
+        <script src="app.js"></script>
+    </body>
+</html>

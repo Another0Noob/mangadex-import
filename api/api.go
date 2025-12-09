@@ -33,6 +33,10 @@ type MangaAPI struct {
 	// queueOrder tracks session IDs in enqueue order (protected by queueMu)
 	queueMu    sync.Mutex
 	queueOrder []string
+
+	// queue SSE subscribers
+	queueSubs   map[chan []string]struct{}
+	queueSubsMu sync.Mutex
 }
 
 func NewMangaAPI() *MangaAPI {
@@ -42,6 +46,8 @@ func NewMangaAPI() *MangaAPI {
 		jobQueue:   make(chan queuedJob, size), // buffered queue
 		queueOrder: make([]string, 0, size),
 	}
+
+	api.queueSubs = make(map[chan []string]struct{})
 
 	// Start single worker to process jobs sequentially
 	go func() {
@@ -85,14 +91,18 @@ func NewMangaAPI() *MangaAPI {
 
 // HandleProgress streams progress updates via SSE
 func (api *MangaAPI) HandleProgress(w http.ResponseWriter, r *http.Request) {
+	sessionID := r.URL.Query().Get("session_id")
 	userID := r.URL.Query().Get("user_id")
-	if userID == "" {
-		http.Error(w, "user_id required", http.StatusBadRequest)
-		return
+
+	var session *UserSession
+	var ok bool
+	if sessionID != "" {
+		session, ok = api.sessions.GetSessionByID(sessionID) // you might need to add this helper
+	} else if userID != "" {
+		session, ok = api.sessions.GetSession(userID)
 	}
 
-	session, ok := api.sessions.GetSession(userID)
-	if !ok {
+	if !ok || session == nil {
 		http.Error(w, "No active session", http.StatusNotFound)
 		return
 	}
@@ -108,25 +118,26 @@ func (api *MangaAPI) HandleProgress(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Listen for client disconnect via request context
+	notify := r.Context().Done()
+
 	// Stream progress updates
-	for update := range session.Progress {
-		data, _ := json.Marshal(update)
-		fmt.Fprintf(w, "data: %s\n\n", data)
-		flusher.Flush()
+	for {
+		select {
+		case update, okCh := <-session.Progress:
+			if !okCh {
+				// session progress channel closed, finish
+				return
+			}
+			data, _ := json.Marshal(update)
+			fmt.Fprintf(w, "data: %s\n\n", data)
+			flusher.Flush()
 
-		if update.Type == "complete" || update.Type == "error" {
-			break
-		}
-	}
-}
-
-// removeQueuedUser removes a user from the queueOrder slice (if present).
-func (api *MangaAPI) removeQueuedSession(sessionID string) {
-	api.queueMu.Lock()
-	defer api.queueMu.Unlock()
-	for i, id := range api.queueOrder {
-		if id == sessionID {
-			api.queueOrder = append(api.queueOrder[:i], api.queueOrder[i+1:]...)
+			if update.Type == "complete" || update.Type == "error" {
+				return
+			}
+		case <-notify:
+			// client disconnected
 			return
 		}
 	}
@@ -139,54 +150,33 @@ func (api *MangaAPI) HandleCancel(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userID := r.URL.Query().Get("user_id")
-	if userID == "" {
-		http.Error(w, "user_id required", http.StatusBadRequest)
-		return
-	}
-
-	// If there's a session, remove its queued entry (tracked by session.ID)
-	if session, ok := api.sessions.GetSession(userID); ok {
-		api.removeQueuedSession(session.ID)
-	}
-
-	api.sessions.RemoveSession(userID)
-	json.NewEncoder(w).Encode(map[string]string{"status": "cancelled"})
-}
-
-// HandleQueue returns queue information for a given user.
-// GET /api/queue?user_id=...
-// Response: {"position": <int>, "queued": <int>}
-func (api *MangaAPI) HandleQueue(w http.ResponseWriter, r *http.Request) {
-	// Prefer explicit session_id
 	sessionID := r.URL.Query().Get("session_id")
 	userID := r.URL.Query().Get("user_id")
 
-	// If session_id is not provided but user_id is, try to find session and use its ID
-	if sessionID == "" && userID != "" {
-		if session, ok := api.sessions.GetSession(userID); ok {
-			sessionID = session.ID
-		}
-	}
-
-	api.queueMu.Lock()
-	defer api.queueMu.Unlock()
-
-	total := len(api.queueOrder)
-	position := 0
+	// Prefer session_id (server-generated session identifier)
 	if sessionID != "" {
-		for i, id := range api.queueOrder {
-			if id == sessionID {
-				position = i + 1 // 1-based position
-				break
-			}
+		if session, ok := api.sessions.GetSessionByID(sessionID); ok {
+			api.removeQueuedSession(session.ID)
+			// Remove session from sessions map by finding its user key.
+			api.sessions.RemoveBySessionID(sessionID)
+			json.NewEncoder(w).Encode(map[string]string{"status": "cancelled"})
+			return
 		}
+		http.Error(w, "No active session", http.StatusNotFound)
+		return
 	}
 
-	json.NewEncoder(w).Encode(map[string]int{
-		"position": position,
-		"queued":   total,
-	})
+	// legacy path: user_id
+	if userID == "" {
+		http.Error(w, "user_id or session_id required", http.StatusBadRequest)
+		return
+	}
+
+	if session, ok := api.sessions.GetSession(userID); ok {
+		api.removeQueuedSession(session.ID)
+	}
+	api.sessions.RemoveSession(userID)
+	json.NewEncoder(w).Encode(map[string]string{"status": "cancelled"})
 }
 
 func RunApi() {
@@ -196,6 +186,10 @@ func RunApi() {
 	http.HandleFunc("/api/progress", api.HandleProgress)
 	http.HandleFunc("/api/cancel", api.HandleCancel)
 	http.HandleFunc("/api/queue", api.HandleQueue)
+	http.HandleFunc("/api/queue/subscribe", api.HandleQueueSubscribe)
+
+	fs := http.FileServer(http.Dir("./web"))
+	http.Handle("/", fs)
 
 	fmt.Println("Server starting on :8080")
 	http.ListenAndServe(":8080", nil)

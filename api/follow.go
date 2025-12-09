@@ -25,7 +25,6 @@ func (fj FollowJob) Run(api *MangaAPI, session *UserSession) {
 
 // FollowRequest holds the parameters for a follow operation
 type FollowRequest struct {
-	UserID        string
 	Username      string // MangaDex username
 	Password      string // MangaDex password
 	ClientID      string // MangaDex OAuth client ID
@@ -49,22 +48,12 @@ func (api *MangaAPI) HandleFollow(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userID := r.FormValue("user_id")
-	if userID == "" {
-		http.Error(w, "user_id required", http.StatusBadRequest)
-		return
-	}
-
-	// Get MangaDex credentials from form
+	// Pick a stable key to identify this user's session.
+	// Prefer explicit user_id, otherwise fall back to client_id, otherwise to username.
 	username := r.FormValue("username")
 	password := r.FormValue("password")
 	clientID := r.FormValue("client_id")
 	clientSecret := r.FormValue("client_secret")
-
-	if username == "" || password == "" || clientID == "" || clientSecret == "" {
-		http.Error(w, "All MangaDex credentials required", http.StatusBadRequest)
-		return
-	}
 
 	inputFile, fileHeader, err := r.FormFile("manga_list")
 	if err != nil {
@@ -85,7 +74,6 @@ func (api *MangaAPI) HandleFollow(w http.ResponseWriter, r *http.Request) {
 	}
 
 	req := FollowRequest{
-		UserID:        userID,
 		Username:      username,
 		Password:      password,
 		ClientID:      clientID,
@@ -95,7 +83,7 @@ func (api *MangaAPI) HandleFollow(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Create a new session for this user
-	session, err := api.sessions.CreateSession(req.UserID)
+	session, err := api.sessions.CreateSession(req.ClientID)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Failed to create session: %v", err), http.StatusInternalServerError)
 		return
@@ -111,7 +99,7 @@ func (api *MangaAPI) HandleFollow(w http.ResponseWriter, r *http.Request) {
 	default:
 		// Queue full - inform client
 		api.queueMu.Unlock()
-		api.sessions.RemoveSession(req.UserID) // cleanup the session we created
+		api.sessions.RemoveSession(req.ClientID) // cleanup the session we created
 		http.Error(w, "Server busy, try again later", http.StatusTooManyRequests)
 		return
 	}
@@ -119,7 +107,7 @@ func (api *MangaAPI) HandleFollow(w http.ResponseWriter, r *http.Request) {
 	// Return session ID for tracking
 	json.NewEncoder(w).Encode(map[string]string{
 		"session_id": session.ID,
-		"user_id":    req.UserID,
+		"user_id":    req.ClientID,
 		"status":     "queued",
 	})
 }
@@ -127,7 +115,7 @@ func (api *MangaAPI) HandleFollow(w http.ResponseWriter, r *http.Request) {
 // runFollowAsync executes the follow operation with progress updates
 // (existing implementation reused; no signature changes)
 func (api *MangaAPI) runFollowAsync(session *UserSession, req FollowRequest) {
-	defer api.sessions.RemoveSession(req.UserID)
+	defer api.sessions.RemoveSession(req.ClientID)
 
 	// Use the session's cancellable context with a timeout
 	ctx, cancel := context.WithTimeout(session.Ctx, 30*time.Minute)
