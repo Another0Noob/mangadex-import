@@ -12,8 +12,7 @@ go run -tags dev .
 web deploy
 ```bash
 cd web
-go build .
-./web
+go run .
 ```
 
 todo
