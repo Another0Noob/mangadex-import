@@ -5,7 +5,7 @@ todo
 - [ ] add user imput
 - [ ] add progress bar 
 - [ ] add logging
-- [ ] add webserver
-- [ ] solve ratelimiter
+- [x] add webserver
+- [x] solve ratelimiter
 - [ ] queue
 - [ ] add web ui

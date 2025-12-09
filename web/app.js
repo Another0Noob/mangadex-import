@@ -102,29 +102,44 @@ function startProgressSSE(sessionId) {
 
   esProgress.onopen = () =>
     appendProgress("Connected to progress stream", "info");
+
   esProgress.onmessage = (e) => {
     try {
       const data = JSON.parse(e.data);
-      if (data.type === "progress") {
-        appendProgress(
-          `${data.msg || "progress"} ${data.percent ? data.percent + "%" : ""}`,
-          "progress",
-        );
-      } else if (data.type === "complete") {
-        appendProgress("Import complete", "complete");
-        cleanupAfterFinish();
-      } else if (data.type === "error") {
-        appendProgress(`Error: ${data.msg || "unknown"}`, "error");
-        cleanupAfterFinish();
-      } else {
-        appendProgress(JSON.stringify(data), "info");
+
+      switch (data.type) {
+        case "progress":
+          appendProgress(
+            `${data.message || "progress"} ${
+              data.data?.percent ? data.data.percent + "%" : ""
+            }`,
+            "progress",
+          );
+          break;
+
+        case "complete":
+          appendProgress(data.message || "Import complete", "complete");
+          cleanupAfterFinish();
+          break;
+
+        case "error":
+          appendProgress(`Error: ${data.message || "unknown"}`, "error");
+          cleanupAfterFinish();
+          break;
+
+        case "info":
+          appendProgress(data.message || "info", "info");
+          break;
+
+        default:
+          appendProgress(JSON.stringify(data), "info");
       }
-    } catch (err) {
+    } catch {
       appendProgress(e.data, "info");
     }
   };
 
-  esProgress.onerror = (err) => {
+  esProgress.onerror = () => {
     appendProgress("Progress stream disconnected.", "info");
   };
 }
