@@ -1,0 +1,39 @@
+# List recipes by default
+default:
+    just --list
+
+# Install frontend dependencies
+install:
+    cd frontend-vite && pnpm install
+
+# Development mode (frontend + backend)
+dev:
+    just dev-frontend & just dev-backend
+
+# Run Vite dev server
+dev-frontend:
+    cd frontend-vite && pnpm run dev
+
+# Run Go backend in dev mode
+dev-backend:
+    go run main.go -dev
+
+# Build everything
+build: build-frontend build-backend
+
+# Build frontend assets
+build-frontend:
+    cd frontend-vite && pnpm run build
+
+# Build Go binary
+build-backend:
+    go build -o web main.go
+
+# Run production server
+run: build-frontend
+    go run main.go
+
+# Clean build artifacts
+clean:
+    rm -rf frontend-vite/dist
+    rm -f web
