@@ -7,12 +7,12 @@ go run main.go
 web dev
 ```bash
 cd web
-go run -tags dev .
+make dev
 ```
 web deploy
 ```bash
 cd web
-go run .
+make run
 ```
 
 todo
@@ -24,3 +24,4 @@ todo
 - [x] solve ratelimiter
 - [ ] queue
 - [ ] add web ui
+- [ ] migrate to vite
