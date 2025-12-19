@@ -33,13 +33,21 @@ builds:
     binary: "mdimport"
   - main: "./web"
     id: "web"
-    binary: "mdimport"
+    binary: "mdimport-web"
 
 archives:
-  - formats: [tar.gz]
-    # this name template makes the OS and Arch compatible with the results of `uname`.
-    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}_{{ .BuildID }}"
-    # use zip for windows archives
+  - id: cli
+    builds: [cli]
+    formats: [tar.gz]
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}_cli"
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+
+  - id: web
+    builds: [web]
+    formats: [tar.gz]
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}_web"
     format_overrides:
       - goos: windows
         formats: [zip]
