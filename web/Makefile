@@ -19,17 +19,15 @@ install:
 
 # Development mode - runs both frontend and backend concurrently
 dev:
-	@echo "Starting development servers..."
 	@make -j2 dev-frontend dev-backend
+	@echo "Server running at: http://localhost:3939"
 
 # Run Vite dev server
 dev-frontend:
-	@echo "Starting Vite dev server on http://localhost:5173"
 	cd frontend-vite && pnpm run dev
 
 # Run Go backend in dev mode
 dev-backend:
-	@echo "Starting Go backend on http://localhost:3939"
 	go run main.go -dev
 
 # Build everything for production
@@ -37,21 +35,17 @@ build: build-frontend build-backend
 
 # Build frontend assets
 build-frontend:
-	@echo "Building frontend..."
 	cd frontend-vite && pnpm run build
 
 # Build Go binary
 build-backend:
-	@echo "Building backend..."
 	go build -o web main.go
 
 # Run production server
-run:
-	@echo "Starting production server on http://localhost:3939"
+run: build-frontend
 	go run main.go
 
 # Clean build artifacts
 clean:
-	@echo "Cleaning build artifacts..."
 	rm -rf frontend-vite/dist
 	rm web

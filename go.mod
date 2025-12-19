@@ -7,7 +7,6 @@ require golang.org/x/time v0.14.0
 require (
 	github.com/google/uuid v1.6.0
 	github.com/lithammer/fuzzysearch v1.1.8
-	github.com/olivere/vite v0.1.0
 	github.com/spf13/cobra v1.10.2
 	golang.org/x/text v0.32.0
 	gopkg.in/ini.v1 v1.67.0

@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"io/fs"
 	"net/http"
-	"os"
+	"net/http/httputil"
+	"net/url"
 
 	"github.com/Another0Noob/mangadex-import/web/backend"
-	"github.com/olivere/vite"
 )
 
 //go:embed all:frontend-vite/dist
@@ -20,55 +20,66 @@ var isDev = flag.Bool("dev", false, "Enable development mode")
 func main() {
 	flag.Parse()
 
+	mux := http.NewServeMux()
+
 	// Setup API routes
-	runApi()
+	runApi(mux)
 
 	// Setup Vite/Frontend handling
 	handler, err := createViteHandler()
 	if err != nil {
+		fmt.Printf("Error creating Vite handler: %v\n", err)
 		panic(err)
 	}
-	http.Handle("/", handler)
+	mux.Handle("/", handler)
 
 	fmt.Printf("Server running at: http://localhost:3939/ (dev mode: %v)\n", *isDev)
-	http.ListenAndServe(":3939", nil)
+	if err := http.ListenAndServe(":3939", mux); err != nil {
+		panic(err)
+	}
 }
 
-func runApi() {
+func runApi(mux *http.ServeMux) {
 	api := backend.NewMangaAPI()
-	http.HandleFunc("/api/follow", api.HandleFollow)
-	http.HandleFunc("/api/progress", api.HandleProgress)
-	http.HandleFunc("/api/cancel", api.HandleCancel)
-	http.HandleFunc("/api/queue", api.HandleQueue)
-	http.HandleFunc("/api/queue/subscribe", api.HandleQueueSubscribe)
+	mux.HandleFunc("/api/follow", api.HandleFollow)
+	mux.HandleFunc("/api/progress", api.HandleProgress)
+	mux.HandleFunc("/api/cancel", api.HandleCancel)
+	mux.HandleFunc("/api/queue", api.HandleQueue)
+	mux.HandleFunc("/api/queue/subscribe", api.HandleQueueSubscribe)
 }
 
 // DistFS returns the embedded dist filesystem for production
 func DistFS() fs.FS {
 	efs, err := fs.Sub(distFS, "frontend-vite/dist")
 	if err != nil {
-		panic(fmt.Sprintf("unable to serve frontend: %v", err))
+		// Try without the "frontend/" prefix
+		efs, err = fs.Sub(distFS, "dist")
+		if err != nil {
+			panic(fmt.Sprintf("unable to serve frontend: %v", err))
+		}
 	}
 	return efs
+}
+
+func devProxy() http.Handler {
+	target, _ := url.Parse("http://localhost:5173")
+
+	proxy := httputil.NewSingleHostReverseProxy(target)
+
+	proxy.ModifyResponse = func(resp *http.Response) error {
+		// Optional: allow HMR through Go
+		resp.Header.Set("Access-Control-Allow-Origin", "*")
+		return nil
+	}
+
+	return proxy
 }
 
 // createViteHandler creates the appropriate Vite handler based on mode
 func createViteHandler() (http.Handler, error) {
 	if *isDev {
-		// Development mode: proxy to Vite dev server
-		return vite.NewHandler(vite.Config{
-			FS:        os.DirFS("./frontend-vite"),        // Source directory
-			IsDev:     true,                               // Enable dev mode
-			PublicFS:  os.DirFS("./frontend-vite/public"), // Optional: public assets
-			ViteURL:   "http://localhost:5173",            // Vite dev server
-			ViteEntry: "src/main.ts",                      // Entry point
-		})
+		http.Handle("/", devProxy())
 	}
 
-	// Production mode: serve embedded files
-	return vite.NewHandler(vite.Config{
-		FS:        DistFS(),      // Embedded dist directory
-		IsDev:     false,         // Disable dev mode
-		ViteEntry: "src/main.ts", // Entry point
-	})
+	return http.FileServer(http.FS(DistFS())), nil
 }
