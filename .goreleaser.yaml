@@ -15,7 +15,10 @@ before:
     - go mod tidy
 
 builds:
-  - env:
+  - main: ./cmd/cli
+    id: "cli"
+    binary: "mdimport"
+    env:
       - CGO_ENABLED=0
     goos:
       - linux
@@ -24,20 +27,29 @@ builds:
     goarch:
       - amd64
       - arm64
-    gcflags:
-      - all=-trimpath -modcacherw
-      - buildmode=pie
-      - mod=readonly
-  - main: .
-    id: "cli"
-    binary: "mdimport"
-  - main: "./web"
+    flags:
+      - -trimpath
+      - -mod=readonly
+      - -modcacherw
+    buildmode: pie
+  - main: ./cmd/web
     id: "web"
     binary: "mdimport-web"
+    goos:
+      - linux
+      - windows
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    flags:
+      - -trimpath
+      - -mod=readonly
+      - -modcacherw
+    buildmode: pie
 
 archives:
   - id: cli
-    builds: [cli]
     formats: [tar.gz]
     name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}_cli"
     format_overrides:
@@ -45,7 +57,6 @@ archives:
         formats: [zip]
 
   - id: web
-    builds: [web]
     formats: [tar.gz]
     name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}_web"
     format_overrides:
