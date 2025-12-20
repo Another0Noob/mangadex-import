@@ -2,7 +2,7 @@
 *.ini
 *.csv
 *.txt
-main
+bin/
 # Added by goreleaser init:
 dist/
 build-test/

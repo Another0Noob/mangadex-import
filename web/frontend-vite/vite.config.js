@@ -2,11 +2,10 @@ import { defineConfig } from "vite";
 
 export default defineConfig({
   server: {
-    port: 5173,
-    strictPort: true,
+    port: 39390,
     cors: {
       // Allow Go backend to access Vite dev server
-      origin: "http://localhost:3939",
+      origin: "http://localhost:39039",
     },
   },
 
