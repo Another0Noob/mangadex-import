@@ -2,17 +2,15 @@
 
 cli
 ```bash
-go run main.go
+just run-cli
 ```
 web dev
 ```bash
-cd web
-make dev
+just dev
 ```
 web deploy
 ```bash
-cd web
-make run
+just run-web
 ```
 
 todo
