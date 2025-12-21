@@ -10,7 +10,7 @@ import (
 
 func startServer() error {
 	mux := http.NewServeMux()
-	web.RunApi(mux)
+	web.HandleBack(mux)
 	if err := http.ListenAndServe(":39039", mux); err != nil {
 		return err
 	}
