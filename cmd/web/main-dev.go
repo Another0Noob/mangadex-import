@@ -8,11 +8,8 @@ import (
 	"github.com/Another0Noob/mangadex-import/web"
 )
 
-func startServer() error {
+func main() {
 	mux := http.NewServeMux()
 	web.HandleBack(mux)
-	if err := http.ListenAndServe(":39039", mux); err != nil {
-		return err
-	}
-	return nil
+	web.RunServer(mux)
 }
