@@ -22,7 +22,6 @@ func HandleBack(mux *http.ServeMux) {
 	mux.HandleFunc("/api/progress", api.HandleProgress)
 	mux.HandleFunc("/api/cancel", api.HandleCancel)
 	mux.HandleFunc("/api/queue", api.HandleQueue)
-	mux.HandleFunc("/api/queue/subscribe", api.HandleQueueSubscribe)
 }
 
 func HandleFront(mux *http.ServeMux) {

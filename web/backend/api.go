@@ -35,7 +35,7 @@ type MangaAPI struct {
 	queueOrder []string
 
 	// queue SSE subscribers
-	queueSubs   map[chan []string]struct{}
+	queueSubs   map[chan struct{}]struct{}
 	queueSubsMu sync.Mutex
 }
 
@@ -47,7 +47,7 @@ func NewMangaAPI() *MangaAPI {
 		queueOrder: make([]string, 0, size),
 	}
 
-	api.queueSubs = make(map[chan []string]struct{})
+	api.queueSubs = make(map[chan struct{}]struct{})
 
 	// Start single worker to process jobs sequentially
 	go func() {

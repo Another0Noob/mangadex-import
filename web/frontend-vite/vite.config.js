@@ -7,12 +7,7 @@ export default defineConfig({
       "/api": "http://localhost:39039",
     },
   },
-
   build: {
     manifest: true,
-    // Disable the modulepreload polyfill
-    modulePreload: {
-      polyfill: false,
-    },
   },
 });
