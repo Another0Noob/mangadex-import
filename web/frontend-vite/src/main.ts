@@ -1,17 +1,23 @@
 import "./style.css";
 
-type Mode = "import" | "export";
+type Mode = "import" | "importR" | "export" | "exportR";
 
 // State
 let currentMode: Mode = "import";
 
 // Elements
+const queue = document.getElementById("queue") as HTMLDivElement;
+const queueTotal = document.getElementById("queueTotal") as HTMLSpanElement;
+const queuePos = document.getElementById("queuePos") as HTMLSpanElement;
 const modeButtons = document.querySelectorAll(
   ".mode-btn",
 ) as NodeListOf<HTMLButtonElement>;
 const submitBtn = document.getElementById("submitBtn") as HTMLButtonElement;
-const resultDiv = document.getElementById("result") as HTMLDivElement;
-const resultText = document.getElementById("resultText") as HTMLDivElement;
+const cancelBtn = document.getElementById("cancelBtn") as HTMLButtonElement;
+const progressDiv = document.getElementById("progress") as HTMLDivElement;
+const progressList = document.getElementById(
+  "progressList",
+) as HTMLUListElement;
 
 // Form fields
 const usernameField = document.querySelector(
@@ -41,8 +47,17 @@ const mangaInput = document.getElementById("manga") as HTMLInputElement;
 
 // Field visibility rules
 const fieldRules: Record<Mode, string[]> = {
-  import: ["username", "password", "client_id", "client_secret", "manga"],
-  export: ["username", "password", "client_id", "client_secret"],
+  import: [
+    "username",
+    "password",
+    "client_id",
+    "client_secret",
+    "manga",
+    "submitBtn",
+  ],
+  importR: ["cancelBtn", "progress"],
+  export: ["username", "password", "client_id", "client_secret", "submitBtn"],
+  exportR: [],
 };
 
 // Update UI based on mode
@@ -77,9 +92,6 @@ function updateUI(mode: Mode): void {
   // Update submit button
   submitBtn.className = `submit-btn ${mode}`;
   submitBtn.textContent = mode === "import" ? "Import Manga" : "Update Entry";
-
-  // Hide result when mode changes
-  resultDiv.classList.remove("visible");
 }
 
 // Handle mode button clicks
@@ -101,8 +113,8 @@ submitBtn.addEventListener("click", () => {
       break;
   }
 
-  resultText.textContent = message;
-  resultDiv.classList.add("visible");
+  progressList.textContent = message;
+  progressDiv.classList.add("visible");
 });
 
 // Initialize

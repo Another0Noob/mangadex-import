@@ -241,7 +241,7 @@ textarea {
     background: #b91c1c;
 }
 
-.result {
+.progress {
     margin-top: 1.5rem;
     padding: 1rem;
     background: #f9fafb;
@@ -250,17 +250,17 @@ textarea {
     display: none;
 }
 
-.result.visible {
+.progress.visible {
     display: block;
 }
 
-.result-label {
+.progress-label {
     font-size: 0.875rem;
     font-weight: 500;
     color: #374151;
     margin-bottom: 0.25rem;
 }
 
-.result-text {
+.progress-text {
     color: #4b5563;
 }

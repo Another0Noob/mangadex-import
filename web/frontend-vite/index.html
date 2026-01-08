@@ -7,13 +7,13 @@
         <title>frontend-vite</title>
     </head>
     <body>
-        <div id="queue">
-            <p>
-                Queue position: <span id="queuePos"> - </span> /
-                <span id="queueTotal"> - </span>
-            </p>
-        </div>
         <div class="container">
+            <div class="queue" id="queue">
+                <p>
+                    Queue position: <span id="queuePos"> - </span> /
+                    <span id="queueTotal"> - </span>
+                </p>
+            </div>
             <h1>Dynamic Form Example</h1>
 
             <!-- Mode Selection Buttons -->
@@ -87,12 +87,11 @@
             </div>
 
             <!-- Result Display -->
-            <div class="result" id="result">
-                <div class="result-label">Result:</div>
-                <div class="result-text" id="resultText"></div>
+            <div class="progress" id="progress">
+                <h2>Progress</h2>
+                <ul id="progressList"></ul>
             </div>
         </div>
-        <div id="progress"></div>
         <script type="module" src="/src/main.ts"></script>
     </body>
 </html>
